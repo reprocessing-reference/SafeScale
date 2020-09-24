@@ -41,16 +41,13 @@ import (
 	"github.com/CS-SI/SafeScale/lib/server/iaas/stacks"
 	"github.com/CS-SI/SafeScale/lib/server/iaas/userdata"
 	"github.com/CS-SI/SafeScale/lib/server/resources/abstract"
-	"github.com/CS-SI/SafeScale/lib/server/resources/enums/hostproperty"
 	"github.com/CS-SI/SafeScale/lib/server/resources/enums/hoststate"
 	"github.com/CS-SI/SafeScale/lib/server/resources/enums/ipversion"
 	"github.com/CS-SI/SafeScale/lib/server/resources/operations/converters"
 	propertiesv1 "github.com/CS-SI/SafeScale/lib/server/resources/properties/v1"
 	"github.com/CS-SI/SafeScale/lib/utils"
-	"github.com/CS-SI/SafeScale/lib/utils/data"
 	"github.com/CS-SI/SafeScale/lib/utils/fail"
 	"github.com/CS-SI/SafeScale/lib/utils/retry"
-	"github.com/CS-SI/SafeScale/lib/utils/serialize"
 	"github.com/CS-SI/SafeScale/lib/utils/temporal"
 )
 
@@ -629,7 +626,7 @@ func (s *Stack) getNetworkV1FromDomain(domain *libvirt.Domain) (*propertiesv1.Ho
 }
 
 // getHostFromDomain build a abstract.Host struct representing a Domain
-func (s *Stack) getHostFromDomain(domain *libvirt.Domain) (_ *abstract.Host, xerr fail.Error) {
+func (s *Stack) getHostFromDomain(domain *libvirt.Domain) (_ *abstract.HostCore, xerr fail.Error) {
 	defer fail.OnPanic(&xerr)
 
 	id, err := domain.GetUUIDString()
@@ -645,58 +642,18 @@ func (s *Stack) getHostFromDomain(domain *libvirt.Domain) (_ *abstract.Host, xer
 		return nil, fail.Wrap(err, "failed to fetch state from domain")
 	}
 
-	host := abstract.NewHost()
+	host := abstract.NewHostCore()
 
 	host.ID = id
 	host.Name = name
 	host.PrivateKey = "Impossible to fetch them from the domain, the private key is unknown by the domain"
 	host.LastState = stateConvert(state)
 
-	// FIXME: this code should have been moved to operations, check this
-	err = host.Alter(func(_ data.Clonable, props *serialize.JSONProperties) error {
-		innerErr := props.Alter(hostproperty.DescriptionV1, func(clonable data.Clonable) error {
-			hostDescriptionV1, err := getDescriptionV1FromDomain(domain, s.LibvirtService)
-			if err != nil {
-				return fail.Wrap(err, "failed to get domain description")
-			}
-			clonable.(*propertiesv1.HostDescription).Replace(hostDescriptionV1)
-			return nil
-		})
-
-		if innerErr != nil {
-			return nil, fail.Wrap(err, "failed to update hostproperty.DescriptionV1")
-		}
-
-		innerErr = props.Alter(hostproperty.SizingV1, func(clonable data.Clonable) error {
-			hostSizingV1, err := getSizingV1FromDomain(domain, s.LibvirtService)
-			if err != nil {
-				return fail.Wrap(err, "failed to get domain sizing")
-			}
-			clonable.(*propertiesv1.HostSizing).Replace(hostSizingV1)
-			return nil
-		})
-		if innerErr != nil {
-			return nil, fail.Wrap(err, "failed to update hostproperty.SizingV1")
-		}
-
-		return props.Alter(hostproperty.NetworkV1, func(clonable data.Clonable) error {
-			hostNetworkV1, err := s.getNetworkV1FromDomain(domain)
-			if err != nil {
-				return fail.Wrap(err, "failed to get domain network")
-			}
-			clonable.(*propertiesv1.HostNetwork).Replace(hostNetworkV1)
-			return nil
-		})
-	})
-	if err != nil {
-		return nil, fail.Wrap(err, "failed to update hostproperty.NetworkV1")
-	}
-
 	return host, nil
 }
 
 // getHostAndDomainFromRef retrieve the host and the domain associated to an ref (id or name)
-func (s *Stack) getHostAndDomainFromRef(ref string) (*abstract.Host, *libvirt.Domain, fail.Error) {
+func (s *Stack) getHostAndDomainFromRef(ref string) (*abstract.HostCore, *libvirt.Domain, fail.Error) {
 	domain, err := s.LibvirtService.LookupDomainByUUIDString(ref)
 	if err != nil {
 		domain, err = s.LibvirtService.LookupDomainByName(ref)
@@ -730,50 +687,12 @@ func (s *Stack) complementHost(hostCore *abstract.HostCore, newHost *abstract.Ho
 
 	defer fail.OnPanic(&xerr)
 
-	hostCore.ID = newHost.ID
+	hostCore.ID = newHost.GetID()
 	if hostCore.Name == "" {
-		hostCore.Name = newHost.Name
+		hostCore.Name = newHost.GetName()
 	}
-	hostCore.LastState = newHost.LastState
 
-	// FIXME: this code should have been moved to operations, check this
-	return hostCore.Alter(func(_ data.Clonable, props *serialize.JSONProperties) fail.Error {
-		innerErr := props.Alter(hostproperty.NetworkV1, func(clonable data.Clonable) fail.Error {
-			newHostNetworkV1 := propertiesv1.NewHostNetwork()
-			readlockErr := newHost.Properties.LockForRead(hostproperty.NetworkV1).ThenUse(func(clonable data.Clonable) fail.Error {
-				newHostNetworkV1 = clonable.(*propertiesv1.HostNetwork)
-				return nil
-			})
-			if readlockErr != nil {
-				return fail.Wrap(err, "failed to update hostproperty.NetworkV1")
-			}
-			hostNetworkV1 := clonable.(*propertiesv1.HostNetwork)
-			hostNetworkV1.IPv4Addresses = newHostNetworkV1.IPv4Addresses
-			hostNetworkV1.IPv6Addresses = newHostNetworkV1.IPv6Addresses
-			hostNetworkV1.NetworksByID = newHostNetworkV1.NetworksByID
-			hostNetworkV1.NetworksByName = newHostNetworkV1.NetworksByName
-			return nil
-		})
-		if innerErr != nil {
-			return innerErr
-		}
-
-		return props.Alter(hostproperty.SizingV1, func(clonable data.Clonable) fail.Error {
-			newHostSizingV1 := propertiesv1.NewHostSizing()
-			readLockErr := newHost.Properties.LockForRead(hostproperty.SizingV1).ThenUse(func(clonable data.Clonable) fail.Error {
-				newHostSizingV1 = clonable.(*propertiesv1.HostSizing)
-				return nil
-			})
-			if readLockErr != nil {
-				return fail.Wrap(readLockErr, "failed to update hostproperty.SizingV1")
-			}
-			hostSizingV1 := clonable.(*propertiesv1.HostSizing)
-			hostSizingV1.AllocatedSize.Cores = newHostSizingV1.AllocatedSize.Cores
-			hostSizingV1.AllocatedSize.RAMSize = newHostSizingV1.AllocatedSize.RAMSize
-			hostSizingV1.AllocatedSize.DiskSize = newHostSizingV1.AllocatedSize.DiskSize
-			return nil
-		})
-	})
+	return nil
 }
 
 func verifyVirtResizeCanAccessKernel() (xerr fail.Error) {
@@ -949,9 +868,9 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (host *abstract.HostFul
 		return nil, nil, userData, err
 	}
 	userdataFileName := s.LibvirtConfig.LibvirtStorage + "/" + resourceName + "_userdata.sh"
-	err = ioutil.WriteFile(userdataFileName, userDataPhase1, 0644)
-	if err != nil {
-		return nil, nil, userData, fail.Wrap(err, "failed to write userData in %s_userdata.sh file", resourceName)
+	werr := ioutil.WriteFile(userdataFileName, userDataPhase1, 0644)
+	if werr != nil {
+		return nil, nil, userData, fail.Wrap(werr, "failed to write userData in %s_userdata.sh file", resourceName)
 	}
 
 	// without sudo rights /boot/vmlinuz/`uname -r` have to be readable by the user to execute virt-resize / virt-sysprep
@@ -1051,19 +970,18 @@ func (s *Stack) InspectHost(hostParam stacks.HostParameter) (host *abstract.Host
 		return nil, fail.InvalidInstanceError()
 	}
 
-	var hostRef string
-	ahc, hostRef, err := stacks.ValidateHostParameter(hostParam)
+	ahc, _, err := stacks.ValidateHostParameter(hostParam)
 	if err != nil {
 		return ahc, err
 	}
 
-	newHost, _, err := s.getHostAndDomainFromRef(ahc.ID)
+	newHost, _, err := s.getHostAndDomainFromRef(ahc.GetID())
 	if err != nil {
 		return nil, err
 	}
 
 	host = abstract.NewHostFull()
-	host.Core = ahc
+	host.Core = ahc.Core
 	if err = s.complementHost(host, newHost); err != nil {
 		return nil, fail.Wrap(err, "failed to complement the host")
 	}
@@ -1093,12 +1011,13 @@ func (s *Stack) DeleteHost(hostParam stacks.HostParameter) fail.Error {
 	if s == nil {
 		return fail.InvalidInstanceError()
 	}
-	ahf, hostRef, xerr := stacks.ValidateHostParameter(hostParam)
+
+	ahf, _, xerr := stacks.ValidateHostParameter(hostParam)
 	if xerr != nil {
 		return xerr
 	}
 
-	_, domain, err := s.getHostAndDomainFromRef(id)
+	_, domain, err := s.getHostAndDomainFromRef(ahf.GetID())
 	if err != nil {
 		return err
 	}
@@ -1108,9 +1027,9 @@ func (s *Stack) DeleteHost(hostParam stacks.HostParameter) fail.Error {
 		return fail.Wrap(err, "failed to get the volumes from the domain")
 	}
 
-	isActive, err := domain.IsActive()
-	if err != nil {
-		return fail.Wrap(err, "failed to know if the domain is active")
+	isActive, ferr := domain.IsActive()
+	if ferr != nil {
+		return fail.Wrap(ferr, "failed to know if the domain is active")
 	}
 	if !isActive {
 		err := s.StartHost(ahf.Core.ID)
@@ -1119,13 +1038,13 @@ func (s *Stack) DeleteHost(hostParam stacks.HostParameter) fail.Error {
 		}
 	}
 
-	err = domain.Destroy()
-	if err != nil {
-		return fail.Wrap(err, "failed to destroy the domain")
+	ferr = domain.Destroy()
+	if ferr != nil {
+		return fail.Wrap(ferr, "failed to destroy the domain")
 	}
-	err = domain.Undefine()
-	if err != nil {
-		return fail.Wrap(err, "failed to undefine the domain")
+	ferr = domain.Undefine()
+	if ferr != nil {
+		return fail.Wrap(ferr, "failed to undefine the domain")
 	}
 
 	for _, volume := range volumes {
@@ -1239,7 +1158,7 @@ func (s *Stack) RebootHost(hostParam stacks.HostParameter) (xerr fail.Error) {
 
 	ferr := domain.Reboot(0)
 	if ferr != nil {
-		return fail.Wrap(normalizeError(ferr), "failed to reboot the host '%s'", hostRef)
+		return fail.Wrap(ferr, "failed to reboot the host '%s'", hostRef)
 	}
 
 	return nil
