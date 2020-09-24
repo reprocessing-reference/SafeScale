@@ -30,7 +30,7 @@ require (
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/groupcache v0.0.0-20191227052852-215e87163ea7 // indirect
 	github.com/golang/mock v1.4.4 // indirect
-	github.com/golang/protobuf v1.3.2
+	github.com/golang/protobuf v1.4.1
 	github.com/golangci/gocyclo v0.0.0-20180528144436-0a533e8fa43d // indirect
 	github.com/golangci/gofmt v0.0.0-20190930125516-244bba706f1a // indirect
 	github.com/golangci/golangci-lint v1.18.0 // indirect
@@ -109,11 +109,11 @@ require (
 	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6
 	golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d
 	golang.org/x/tools v0.0.0-20200923182640-463111b69878 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gomodules.xyz/stow v0.2.4
 	google.golang.org/api v0.15.0
 	google.golang.org/appengine v1.6.5
 	google.golang.org/grpc v1.27.0
+	google.golang.org/protobuf v1.25.0
 	gopkg.in/ini.v1 v1.55.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 	honnef.co/go/tools v0.0.1-2020.1.3 // indirect
