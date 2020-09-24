@@ -1,3 +1,4 @@
+// +build ignore
 /*
  * Copyright 2018-2020, CS Systemes d'Information, http://www.c-s.fr
  *
@@ -18,7 +19,6 @@ package vclouddirector
 
 import (
 	"fmt"
-	"github.com/CS-SI/SafeScale/lib/utils/debug/tracing"
 	"log"
 	"strconv"
 	"strings"
@@ -26,8 +26,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/vmware/go-vcloud-director/v2/govcd"
-	"github.com/vmware/go-vcloud-director/v2/types/v56"
+	"github.com/vmware/go-vcloud-director/govcd"
+	"github.com/vmware/go-vcloud-director/types/v56"
 
 	"github.com/CS-SI/SafeScale/lib/server/iaas/stacks"
 	"github.com/CS-SI/SafeScale/lib/server/iaas/userdata"
@@ -171,12 +171,22 @@ func (s *Stack) ListTemplatesSpecial(all bool) ([]abstract.HostTemplate, fail.Er
 						continue
 					}
 
-					// FIXME Try to recover memory size and template disk size
+					ms, cerr := vapptemplate.GetMemorySize()
+					if cerr != nil {
+						continue
+					}
+
+					ds, cerr := vapptemplate.GetTemplateDiskSize()
+					if cerr != nil {
+						continue
+					}
 
 					ht := abstract.HostTemplate{
-						Cores: 1,
-						ID:    vapptemplate.VAppTemplate.ID,
-						Name:  vapptemplate.VAppTemplate.Name,
+						Cores:    1,
+						RAMSize:  float32(ms),
+						DiskSize: ds,
+						ID:       vapptemplate.VAppTemplate.ID,
+						Name:     vapptemplate.VAppTemplate.Name,
 					}
 					list = append(list, ht)
 				}
@@ -194,8 +204,8 @@ func (s *Stack) GetTemplate(id string) (*abstract.HostTemplate, fail.Error) {
 	}
 
 	// TODO: use concurrency.Tracer
-	logrus.Debugf(">>> stacks.vclouddirector::GetTemplate(%s)", id)
-	defer logrus.Debugf("<<< stacks.vclouddirector::GetTemplate(%s)", id)
+	logrus.Debugf(">>> stacks.vclouddirector::InspectTemplate(%s)", id)
+	defer logrus.Debugf("<<< stacks.vclouddirector::InspectTemplate(%s)", id)
 
 	// "Cores:%d,Disk:%d,Memory:%d"
 	if strings.HasPrefix(id, "Cores:") {
@@ -266,14 +276,18 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (hostFull *abstract.Hos
 	resourceName := request.ResourceName
 	networks := request.Networks
 	hostMustHavePublicIP := request.PublicIP
+	defaultGateway := request.DefaultGateway
 	keyPair := request.KeyPair
 
 	if networks == nil || len(networks) == 0 {
 		return nullAhf, userData, fail.InvalidRequestError("the hostFull %s must be on at least one network (even if public)", resourceName)
 	}
+	if defaultGateway == nil && !hostMustHavePublicIP {
+		return nullAhf, userData, fail.InvalidRequestError("The hostFull %s must have a gateway or be public", resourceName)
+	}
 
 	org, vdc, xerr := s.getOrgVdc()
-	if xerr != nil {
+	if err != nil {
 		return nullAhf, userData, fail.Wrap(xerr, "error getting hostFull by name")
 	}
 
@@ -350,10 +364,12 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (hostFull *abstract.Hos
 	nets := []*types.OrgVDCNetwork{net.OrgVDCNetwork}
 
 	storageProfileReference := types.Reference{}
-	for _, sp := range vdc.Vdc.VdcStorageProfiles.VdcStorageProfile {
-		storageProfileReference, err = vdc.FindStorageProfileReference(sp.Name)
-		if err != nil {
-			return nullAhf, userData, fail.NewError("failed to find storage profile '%s'", sp.Name)
+	for _, sps := range vdc.Vdc.VdcStorageProfiles {
+		for _, sp := range sps.VdcStorageProfile {
+			storageProfileReference, err = vdc.FindStorageProfileReference(sp.Name)
+			if err != nil {
+				return nullAhf, userData, fail.NewError("failed to find storage profile '%s'", sp.Name)
+			}
 		}
 	}
 
@@ -364,7 +380,7 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (hostFull *abstract.Hos
 		retryErr := retry.WhileUnsuccessfulDelay5Seconds(
 			func() error {
 				// FIXME: vdc.ComposeVAppWithDHCP doesn't exist anymore; use of vdc.ComposeVapp + another call ?
-				task, innerErr := vdc.ComposeVApp(nets, vapptemplate, storageProfileReference, request.ResourceName, fmt.Sprintf("%s description", request.ResourceName), true)
+				task, innerErr := vdc.ComposeVAppWithDHCP(nets, vapptemplate, storageProfileReference, request.ResourceName, fmt.Sprintf("%s description", request.ResourceName), true)
 				if innerErr != nil {
 					logrus.Warning(normalizeError(innerErr))
 					return normalizeError(innerErr)
@@ -535,9 +551,9 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (hostFull *abstract.Hos
 		Password:   request.Password,
 	}
 
-	publicIPs, nerr := s.getPublicIPs()
-	if nerr != nil {
-		return nullAhf, userData, normalizeError(nerr)
+	publicIPs, xerr := s.getPublicIPs()
+	if xerr != nil {
+		return nullAhf, userData, xerr
 	}
 
 	selectedIP := publicIPs.IPRange[0].StartAddress
@@ -552,13 +568,37 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (hostFull *abstract.Hos
 	} else {
 		hostFull.Network.PublicIPv4 = capturedIP
 	}
+	// retryErr = hostFull.Properties.LockForWrite(hostproperty.NetworkV1).ThenUse(func(clonable data.Clonable) error {
+	//	hostNetworkV1 := clonable.(*propsv1.HostNetwork)
+	//	hostNetworkV1.DefaultNetworkID = defaultNetwork.ID
+	//
+	//	hostNetworkV1.IsGateway = request.DefaultGateway == nil && request.Networks[0].Name != abstract.SingleHostNetworkName
+	//	if request.DefaultGateway != nil {
+	//		hostNetworkV1.DefaultGatewayID = request.DefaultGateway.ID
+	//
+	//		gateway, err := s.InspectHost(request.DefaultGateway)
+	//		if err != nil {
+	//			return fail.Errorf(fmt.Sprintf("Failed to get gateway hostFull : %s", err.Error()), err)
+	//		}
+	//
+	//		hostNetworkV1.DefaultGatewayPrivateIP = gateway.GetPrivateIP()
+	//	}
+	//
+	//	hostIsAGateway = hostNetworkV1.IsGateway
+	//
+	//	if hostNetworkV1.IsGateway {
+	//		hostNetworkV1.PublicIPv4 = selectedIP
+	//	} else {
+	//		hostNetworkV1.PublicIPv4 = capturedIP
+	//	}
+	//	return nil
+	// })
+	// if retryErr != nil {
+	//	return nil, userData, retryErr
+	// }
 
-	// FIXME: Recover information
-	// dsize, _ := vapptemplate.GetTemplateDiskSize()
-	// memory, _ := vapptemplate.GetMemorySize()
-
-	var dsize int = 0
-	var memory int = 0
+	dsize, _ := vapptemplate.GetTemplateDiskSize()
+	memory, _ := vapptemplate.GetMemorySize()
 
 	// FIXME: Extract true info
 	// TODO: adapt in abstract.HostFull.HostSizing
@@ -566,6 +606,19 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (hostFull *abstract.Hos
 	hostFull.Sizing.Cores = 1
 	hostFull.Sizing.DiskSize = dsize / 1024 / 1024 / 1024
 	hostFull.Sizing.GPUNumber = 1
+	// xerr = hostFull.Properties.LockForWrite(hostproperty.SizingV1).ThenUse(func(clonable data.Clonable) error {
+	//	hostSizingV1 := clonable.(*propsv1.HostSizing)
+	//
+	//	hostSizingV1.RequestedSize.RAMSize = float32(memory / 1024)
+	//	hostSizingV1.RequestedSize.Cores = 1
+	//	hostSizingV1.RequestedSize.DiskSize = dsize / 1024 / 1024 / 1024
+	//	hostSizingV1.RequestedSize.GPUNumber = 1
+	//
+	//	return nil
+	// })
+	// if xerr != nil {
+	//	return nil, userData, fail.Errorf(fmt.Sprintf("Failed to update HostProperty.SizingV1 : %s", xerr.Error()), xerr)
+	// }
 
 	// FIXME: Edge gateway smart tunnel only if public or gateway
 	if hostMustHavePublicIP || hostIsAGateway {
@@ -702,8 +755,8 @@ func (s *Stack) GetHostByName(name string) (*abstract.HostCore, fail.Error) {
 	}
 
 	// TODO: use concurrency.Tracer
-	logrus.Debug("vclouddirector.Client.GetHostByName() called")
-	defer logrus.Debug("vclouddirector.Client.GetHostByName() done")
+	logrus.Debug("vclouddirector.Client.InspectHostByName() called")
+	defer logrus.Debug("vclouddirector.Client.InspectHostByName() done")
 
 	_, vdc, xerr := s.getOrgVdc()
 	if xerr != nil {
@@ -728,51 +781,6 @@ func (s *Stack) GetHostByName(name string) (*abstract.HostCore, fail.Error) {
 	}
 
 	return ahc, nil
-}
-
-// WaitHostReady waits an host achieve ready state
-// hostParam can be an ID of host, or an instance of *abstract.HostCore; any other type will return an utils.ErrInvalidParameter
-func (s *Stack) WaitHostReady(hostParam stacks.HostParameter, timeout time.Duration) (*abstract.HostCore, fail.Error) {
-	nullAhc := abstract.NewHostCore()
-	if s == nil {
-		return nullAhc, fail.InvalidInstanceError()
-	}
-
-	ahf, _, xerr := stacks.ValidateHostParameter(hostParam)
-	if xerr != nil {
-		return nullAhc, xerr
-	}
-
-	xerr = s.WaitHostState(hostParam, hoststate.STARTED, timeout)
-	if xerr != nil {
-		return nullAhc, xerr
-	}
-
-	// FIXME Won't work
-	xerr = s.complementHost(nil, nil)
-	if xerr != nil {
-		return nullAhc, xerr
-	}
-	return ahf.Core, nil
-}
-
-// WaitHostState waits an host achieve defined state
-// hostParam can be an ID of host, or an instance of *abstract.HostCore; any other type will return an utils.ErrInvalidParameter
-func (s *Stack) WaitHostState(hostParam stacks.HostParameter, state hoststate.Enum, timeout time.Duration) (xerr fail.Error) {
-	if s == nil {
-		return fail.InvalidInstanceError()
-	}
-
-	_, hostRef, xerr := stacks.ValidateHostParameter(hostParam)
-	if xerr != nil {
-		return xerr
-	}
-
-	defer debug.NewTracer(nil, true, "(%s, %s, %v)", hostRef, state.String(), timeout).WithStopwatch().Entering().Exiting()
-
-	// FIXME: Implement this
-
-	return nil
 }
 
 // DeleteHost deletes the host identified by id
@@ -818,7 +826,7 @@ func (s *Stack) DeleteHost(hostParam stacks.HostParameter) fail.Error {
 		return normalizeError(err)
 	}
 
-	// FIXME: Delete firewall and NAT rules
+	// FIXME: Remove firewall and NAT rules
 
 	err = dtask.WaitTaskCompletion()
 	return normalizeError(err)
@@ -830,7 +838,7 @@ func (s *Stack) ResizeHost(hostParam stacks.HostParameter, request abstract.Host
 }
 
 // ListHosts lists available hosts
-func (s *Stack) ListHosts(all bool) (abstract.HostList, fail.Error) {
+func (s *Stack) ListHosts() ([]*abstract.HostCore, fail.Error) {
 	if s == nil {
 		return nil, fail.InvalidInstanceError()
 	}
@@ -849,11 +857,9 @@ func (s *Stack) ListHosts(all bool) (abstract.HostList, fail.Error) {
 		return nil, xerr
 	}
 
-	var hosts = abstract.HostList{}
+	var hosts []*abstract.HostCore
 	for _, ref := range refs {
-		hosts = append(hosts, &abstract.HostFull{
-			Core: &abstract.HostCore{Name: ref.Name},
-		})
+		hosts = append(hosts, &abstract.HostCore{Name: ref.Name})
 	}
 
 	return hosts, nil
@@ -882,7 +888,7 @@ func (s *Stack) StopHost(hostParam stacks.HostParameter) fail.Error {
 		return xerr
 	}
 
-	vapp, err := vdc.GetVAppById(ahf.Core.ID, true)
+	vapp, err := vdc.FindVAppByID(id)
 	if err != nil {
 		return normalizeError(err)
 	}
@@ -897,7 +903,7 @@ func (s *Stack) StopHost(hostParam stacks.HostParameter) fail.Error {
 }
 
 // StartHost starts the host identified by id
-func (s *Stack) StartHost(hostParam stacks.HostParameter) fail.Error {
+func (s *Stack) StartHost(hostParam interface{}) fail.Error {
 	if s == nil {
 		return fail.InvalidInstanceError()
 	}
@@ -996,4 +1002,14 @@ func (s *Stack) ListAvailabilityZones() (map[string]bool, fail.Error) {
 
 func (s *Stack) ListRegions() ([]string, fail.Error) {
 	return nil, fail.NotImplementedError("ListRegions() not implemented yet") // FIXME: Technical debt
+}
+
+// BindSecurityGroupToHost ...
+func (s *Stack) BindSecurityGroupToHost(hostParam stacks.HostParameter, sgParam stacks.SecurityGroupParameter, enabled bool) fail.Error {
+	return fail.NotImplementedError("not yet implemented")
+}
+
+// UnbindSecurityGroupFromHost ...
+func (s *Stack) UnbindSecurityGroupFromHost(hostParam stacks.HostParameter, sgParam stacks.SecurityGroupParameter) fail.Error {
+	return fail.NotImplementedError("not yet implemented")
 }
