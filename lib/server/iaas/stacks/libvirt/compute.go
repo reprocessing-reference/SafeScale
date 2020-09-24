@@ -731,7 +731,6 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (host *abstract.HostFul
 	templateID := request.TemplateID
 	imageID := request.ImageID
 	keyPair := request.KeyPair
-	defaultGateway := request.DefaultGateway
 
 	userData = userdata.NewContent()
 
@@ -745,17 +744,17 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (host *abstract.HostFul
 	if networks == nil || len(networks) == 0 {
 		return nil, nil, userData, fail.InvalidParameterError("request.Networks", "cannot be nil or an empty slice")
 	}
-	if defaultGateway == nil && !publicIP {
-		return nil, nil, userData, fail.InvalidRequestError("the host '%s' must have a gateway or be public", resourceName)
-	}
+
 	if templateID == "" {
 		return nil, nil, userData, fail.InvalidParameterError("request.templateID", "cannot be empty string")
 	}
 	if imageID == "" {
 		return nil, nil, userData, fail.InvalidParameterError("request.ImageID", "cannot be empty string")
 	}
-	host, _, ferr := s.getHostAndDomainFromRef(resourceName)
-	if ferr == nil && host != nil {
+	hostC, _, xerr := s.getHostAndDomainFromRef(resourceName)
+	host.Core = hostC
+
+	if xerr == nil && host != nil {
 		return nil, nil, userData, fail.DuplicateError("the host '%s' already exists", resourceName)
 	}
 
@@ -771,14 +770,14 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (host *abstract.HostFul
 	if request.Password == "" {
 		password, err := utils.GeneratePassword(16)
 		if err != nil {
-			return nil, userData, fail.Wrap(err, "failed to generate password")
+			return nil, nil, userData, fail.Wrap(err, "failed to generate password")
 		}
 		request.Password = password
 	}
 
-	template, err = s.InspectTemplate(templateID)
-	if err != nil {
-		return nil, nil, userData, fail.Wrap(err, "failed to get template infos")
+	template, xerr := s.InspectTemplate(templateID)
+	if xerr != nil {
+		return nil, nil, userData, fail.Wrap(xerr, "failed to get template infos")
 	}
 	imagePath, err := getImagePathFromID(s, imageID)
 	if err != nil {
@@ -809,7 +808,7 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (host *abstract.HostFul
 			networkDefault, err := s.InspectNetwork("default")
 			if err != nil {
 				switch err.(type) {
-				case fail.ErrNotFound:
+				case *fail.ErrNotFound:
 					networkDefault, err = s.CreateNetwork(
 						abstract.NetworkRequest{
 							Name:      "default",
@@ -842,7 +841,7 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (host *abstract.HostFul
 				return nil, nil, userData, fail.Wrap(err, "failed to get info waiter")
 			}
 
-			userData.AddInTag(string(userdata.PHASE2_NETWORK_AND_SECURITY), "insert_tag", fmt.Sprintf(`
+			userData.AddInTag(userdata.PHASE2_NETWORK_AND_SECURITY, "insert_tag", fmt.Sprintf(`
  LANIP=$(ip route get 8.8.8.8 | awk -F"src " 'NR==1{split($2,a," ");print a[1]}')
  echo -n "%s|$LANIP" > /dev/tcp/%s/%d`, hostName, ip, infoWaiter.port))
 
@@ -850,9 +849,9 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (host *abstract.HostFul
 			cmd = exec.Command("bash", "-c", command)
 			cmdOutput = &bytes.Buffer{}
 			cmd.Stdout = cmdOutput
-			err = cmd.Run()
-			if err != nil {
-				return nil, nil, userData, fail.Wrap(err, "command failed: '%s'\n", command)
+			ferr = cmd.Run()
+			if ferr != nil {
+				return nil, nil, userData, fail.Wrap(ferr, "command failed: '%s'\n", command)
 			}
 			lanIf := strings.Trim(fmt.Sprint(cmdOutput), "\n ")
 			networksCommandString += fmt.Sprintf(" --network type=direct,source=%s,source_mode=bridge", lanIf)
@@ -902,10 +901,10 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (host *abstract.HostFul
 		cmdError := &bytes.Buffer{}
 		cmd.Stdout = cmdOutput
 		cmd.Stderr = cmdError
-		err = cmd.Run()
-		if err != nil {
-			logrus.Errorf("Commands failed: [%s] with error [%s], stdOutput [%s] and stdError [%s]", command, err.Error(), cmdOutput.String(), cmdError.String())
-			return nil, nil, userData, fail.NewError("command failed: '%s'\n%s", command, err.Error())
+		ferr := cmd.Run()
+		if ferr != nil {
+			logrus.Errorf("Commands failed: [%s] with error [%s], stdOutput [%s] and stdError [%s]", command, ferr.Error(), cmdOutput.String(), cmdError.String())
+			return nil, nil, userData, fail.NewError("command failed: '%s'\n%s", command, ferr.Error())
 		}
 	}
 
@@ -914,16 +913,15 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (host *abstract.HostFul
 		if err != nil {
 			if derr := s.DeleteHost(resourceName); derr != nil {
 				fmt.Printf("failed to Remove the host %s: %s", resourceName, err.Error())
-				err = fail.AddConsequence(err, derr)
 			}
 		}
 	}()
 
 	// ----Generate abstract.Host----
 
-	domain, err := s.LibvirtService.LookupDomainByName(resourceName)
-	if err != nil {
-		return nil, nil, userData, fail.Wrap(err, "cannot find domain '%s'", resourceName)
+	domain, werr := s.LibvirtService.LookupDomainByName(resourceName)
+	if werr != nil {
+		return nil, nil, userData, fail.Wrap(werr, "cannot find domain '%s'", resourceName)
 	}
 
 	hostCore, err := s.getHostFromDomain(domain)
@@ -939,29 +937,21 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (host *abstract.HostFul
 		var vmInfo VMInfo
 		if publicIP {
 			vmInfo = <-vmInfoChannel
-			hnV1.PublicIPv4 = vmInfo.publicIP
 			userData.PublicIP = vmInfo.publicIP
 		}
 	}
 
 	hostNetwork.DefaultNetworkID = request.Networks[0].ID
-	hostNetwork.IsGateway = request.DefaultGateway == nil && request.Networks[0].Name != abstract.SingleHostNetworkName
-	if request.DefaultGateway != nil {
-		hostNetwork.DefaultGatewayID = request.DefaultGateway.ID
+	hostNetwork.IsGateway = request.IsGateway
 
-		gateway, err := s.InspectHost(request.DefaultGateway)
-		if err != nil {
-			return nil, nil, nil, fail.Wrap(err, "failed to get gateway host")
-		}
-
-		hnV1.DefaultGatewayPrivateIP = gateway.PrivateIP()
-	}
+	// FIXME Get gateway info
 
 	host = abstract.NewHostFull()
 	host.Core = hostCore
 	host.Network = hostNetwork
-	host.Sizing = converters.HostTemplateToHostEffectiveSizing(template)
-	return host, userData, nil
+	host.Sizing = converters.HostTemplateToHostEffectiveSizing(*template)
+
+	return host, nil, userData, nil
 }
 
 // GetHost returns the host identified by ref (name or id) or by a *abstract.Host containing an id
@@ -981,8 +971,8 @@ func (s *Stack) InspectHost(hostParam stacks.HostParameter) (host *abstract.Host
 	}
 
 	host = abstract.NewHostFull()
-	host.Core = ahc.Core
-	if err = s.complementHost(host, newHost); err != nil {
+
+	if err = s.complementHost(newHost, host); err != nil {
 		return nil, fail.Wrap(err, "failed to complement the host")
 	}
 
@@ -1067,7 +1057,7 @@ func (s *Stack) DeleteHost(hostParam stacks.HostParameter) fail.Error {
 }
 
 // ResizeHost change the template used by an host
-func (s *Stack) ResizeHost(hostParam stacks.HostParameter, request abstract.SizingRequirements) (*abstract.HostFull, fail.Error) {
+func (s *Stack) ResizeHost(hostParam stacks.HostParameter, request abstract.HostSizingRequirements) (*abstract.HostFull, fail.Error) {
 	return nil, fail.NotImplementedError("ResizeHost() not implemented yet") // FIXME: Technical debt
 }
 
@@ -1083,10 +1073,13 @@ func (s *Stack) ListHosts() (hosts abstract.HostList, xerr fail.Error) {
 		return nil, fail.Wrap(err, "error listing domains")
 	}
 	for _, domain := range domains {
-		host, err := s.getHostFromDomain(&domain)
+		hostC, err := s.getHostFromDomain(&domain)
 		if err != nil {
 			return nil, fail.Wrap(err, "failed to get host from domain")
 		}
+
+		host := abstract.NewHostFull()
+		host.Core = hostC
 
 		hosts = append(hosts, host)
 	}
@@ -1133,9 +1126,9 @@ func (s *Stack) StartHost(hostParam stacks.HostParameter) fail.Error {
 		return fail.Wrap(err, "getHostAndDomainFromRef")
 	}
 
-	err = domain.Create()
-	if err != nil {
-		return fail.Wrap(normalizeError(err), "failed to launch the host '%s'", hostRef)
+	ferr := domain.Create()
+	if ferr != nil {
+		return fail.Wrap(ferr, "failed to launch the host '%s'", hostRef)
 	}
 
 	return nil
@@ -1151,7 +1144,7 @@ func (s *Stack) RebootHost(hostParam stacks.HostParameter) (xerr fail.Error) {
 		return xerr
 	}
 
-	_, domain, err := s.getHostAndDomainFromRef(ahf.Core.id)
+	_, domain, err := s.getHostAndDomainFromRef(ahf.Core.GetID())
 	if err != nil {
 		return fail.Wrap(err, "getHostAndDomainFromRef failed")
 	}
@@ -1174,7 +1167,7 @@ func (s *Stack) GetHostState(hostParam stacks.HostParameter) (hoststate.Enum, fa
 	if err != nil {
 		return hoststate.ERROR, err
 	}
-	return host.LastState, nil
+	return host.CurrentState, nil
 }
 
 // -------------Provider Infos-------------------------------------------------------------------------------------------
@@ -1203,4 +1196,8 @@ func (s *Stack) BindSecurityGroupToHost(hostParam stacks.HostParameter, sgParam 
 // UnbindSecurityGroupFromHost ...
 func (s *Stack) UnbindSecurityGroupFromHost(hostParam stacks.HostParameter, sgParam stacks.SecurityGroupParameter) fail.Error {
 	return fail.NotImplementedError("not yet implemented")
+}
+
+func (s *Stack) InspectTemplate(id string) (*abstract.HostTemplate, fail.Error) {
+	return &abstract.HostTemplate{}, nil
 }
