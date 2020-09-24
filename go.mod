@@ -80,7 +80,7 @@ require (
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b
 	github.com/sethvargo/go-password v0.1.1
 	github.com/sirupsen/logrus v1.5.0
-	github.com/smartystreets/assertions v1.1.1 // indirect
+	github.com/smartystreets/assertions v1.2.0 // indirect
 	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v0.0.7 // indirect
@@ -107,8 +107,8 @@ require (
 	golang.org/x/exp v0.0.0-20191227195350-da58074b4299 // indirect
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
 	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6
-	golang.org/x/sys v0.0.0-20200905004654-be1d3432aa8f
-	golang.org/x/tools v0.0.0-20200904185747-39188db58858 // indirect
+	golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d
+	golang.org/x/tools v0.0.0-20200923182640-463111b69878 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gomodules.xyz/stow v0.2.4
 	google.golang.org/api v0.15.0

@@ -1,4 +1,4 @@
-VERSION=20.09.0-alpha
+VERSION=20.10.0-alpha
 export VERSION
 
 ifeq ($(MAKE_LEVEL),)
@@ -131,8 +131,3 @@ OK_STRING    = "[OK]"
 INFO_STRING  = "[INFO]"
 ERROR_STRING = "[ERROR]"
 WARN_STRING  = "[WARNING]"
-
-BUILD_TAGS = ""
-export BUILD_TAGS
-
-GO?=go

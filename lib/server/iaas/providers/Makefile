@@ -13,7 +13,6 @@ all: generate
 	@(cd ovh && $(MAKE) $(@))
 	@(cd local && $(MAKE) $(@))
 	@(cd gcp && $(MAKE) $(@))
-	@(cd ebrc && $(MAKE) $(@))
 
 vet:
 	@$(GO) vet ./...
