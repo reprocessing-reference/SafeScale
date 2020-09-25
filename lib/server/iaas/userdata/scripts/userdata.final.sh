@@ -27,7 +27,7 @@ trap print_error ERR
 
 fail() {
     echo "PROVISIONING_ERROR: $1"
-    echo -n "$1,${LINUX_KIND},${VERSION_ID},$(hostname),$(date +%Y/%m/%d-%H:%M:%S)" >/opt/safescale/var/state/user_data.final.done
+    echo -n "$1,${LINUX_KIND},${FULL_VERSION_ID},$(hostname),$(date +%Y/%m/%d-%H:%M:%S)" >/opt/safescale/var/state/user_data.final.done
 
     # For compatibility with previous user_data implementation (until v19.03.x)...
     ln -s ${SF_VARDIR}/state/user_data.final.done /var/tmp/user_data.done
@@ -114,7 +114,7 @@ install_python3() {
 install_drivers_nvidia
 install_python3
 
-echo -n "0,linux,${LINUX_KIND},${VERSION_ID},$(hostname),$(date +%Y/%m/%d-%H:%M:%S)" >/opt/safescale/var/state/user_data.final.done
+echo -n "0,linux,${LINUX_KIND},${FULL_VERSION_ID},$(hostname),$(date +%Y/%m/%d-%H:%M:%S)" >/opt/safescale/var/state/user_data.final.done
 # For compatibility with previous user_data implementation (until v19.03.x)...
 ln -s ${SF_VARDIR}/state/user_data.final.done /var/tmp/user_data.done
 

@@ -27,7 +27,7 @@ trap print_error ERR
 
 fail() {
     echo "PROVISIONING_ERROR: $1"
-    echo -n "$1,${LINUX_KIND},${VERSION_ID},$(hostname),$(date +%Y/%m/%d-%H:%M:%S)" >/opt/safescale/var/state/user_data.sysfix.done
+    echo -n "$1,${LINUX_KIND},${FULL_VERSION_ID},$(hostname),$(date +%Y/%m/%d-%H:%M:%S)" >/opt/safescale/var/state/user_data.sysfix.done
     exit $1
 }
 
@@ -43,7 +43,7 @@ set -x
 
 # ---- Main
 
-echo -n "0,linux,${LINUX_KIND},${VERSION_ID},$(hostname),$(date +%Y/%m/%d-%H:%M:%S)" >/opt/safescale/var/state/user_data.sysfix.done
+echo -n "0,linux,${LINUX_KIND},${FULL_VERSION_ID},$(hostname),$(date +%Y/%m/%d-%H:%M:%S)" >/opt/safescale/var/state/user_data.sysfix.done
 
 set +x
 exit 0

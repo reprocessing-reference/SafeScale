@@ -20,14 +20,14 @@
 
 print_error() {
     read line file <<<$(caller)
-    echo "An error occurred in line $line of file $file:" "{"`sed "${line}q;d" "$file"`"}" >&2
+    echo "An error occurred in line $line of file $file:" "{"$(sed "${line}q;d" "$file")"}" >&2
     {{.ExitOnError}}
 }
 trap print_error ERR
 
 fail() {
     echo "PROVISIONING_ERROR: $1"
-    echo -n "$1,${LINUX_KIND},$(date +%Y/%m/%d-%H:%M:%S)" >/opt/safescale/var/state/user_data.netsec.done
+    echo -n "$1,${LINUX_KIND},${FULL_VERSION_ID},$(date +%Y/%m/%d-%H:%M:%S)" >/opt/safescale/var/state/user_data.netsec.done
     exit $1
 }
 
@@ -475,6 +475,7 @@ EOF
         }
     fi
 
+    # netplan generate
     netplan generate && netplan apply || fail 198
 
     if [[ $AWS -eq 1 ]]; then
@@ -775,7 +776,7 @@ EOF
 
             sfApt update
             # Force update of systemd, pciutils and netplan
-            if dpkg --compare-versions $(sfGetFact "linux_version") ge 17.10; then
+            if dpkg --compare-versions $(sfGetFact "distrib_version") ge 17.10; then
                 sfApt install -y systemd pciutils netplan.io || fail 210
             else
                 sfApt install -y systemd pciutils || fail 211
@@ -878,7 +879,7 @@ install_packages
 
 update_kernel_settings || fail 216
 
-echo -n "0,linux,${LINUX_KIND},${VERSION_ID},$(hostname),$(date +%Y/%m/%d-%H:%M:%S)" >/opt/safescale/var/state/user_data.netsec.done
+echo -n "0,linux,${LINUX_KIND},${FULL_VERSION_ID},$(hostname),$(date +%Y/%m/%d-%H:%M:%S)" >/opt/safescale/var/state/user_data.netsec.done
 
 # !!! DON'T REMOVE !!! #insert_tag allows to add something just before exiting,
 #                      but after the template has been realized (cf. libvirt Stack)
