@@ -373,12 +373,22 @@ function compatible_network() {
 export DEBIAN_FRONTEND=noninteractive
 
 put_hostname_in_hosts
+
+check_dns_configuration || true
+
 disable_cloudinit_network_autoconf
 disable_services
 create_user
-ensure_network_connectivity
+
+compatible_network
+
+ensure_network_connectivity || true
+
+compatible_network
 
 touch /etc/cloud/cloud-init.disabled
+
+fail_fast_unsupported_distros
 
 echo -n "0,linux,${LINUX_KIND},${FULL_VERSION_ID},$(hostname),$(date +%Y/%m/%d-%H:%M:%S)" >/opt/safescale/var/state/user_data.init.done
 set +x
