@@ -260,7 +260,7 @@ func isTunnelReady(port int) bool {
 }
 
 // buildTunnel create SSH from local host to remote host through gateway
-// if localPort is set to 0 then it's  automatically choosed
+// if localPort is set to 0 then it's  automatically chosen
 func buildTunnel(cfg *SSHConfig) (*SSHTunnel, fail.Error) {
 	f, err := CreateTempFileFromString(cfg.GatewayConfig.PrivateKey, 0400)
 	if err != nil {
@@ -275,7 +275,8 @@ func buildTunnel(cfg *SSHConfig) (*SSHTunnel, fail.Error) {
 	}
 
 	options := sshOptions + " -oServerAliveInterval=60"
-	cmdString := fmt.Sprintf("ssh -i %s -NL 127.0.0.1:%d:%s:%d %s@%s %s -p %d",
+	cmdString := fmt.Sprintf(
+		"ssh -i %s -C -NL 127.0.0.1:%d:%s:%d %s@%s %s -p %d",
 		f.Name(),
 		localPort,
 		cfg.Host,
@@ -285,6 +286,20 @@ func buildTunnel(cfg *SSHConfig) (*SSHTunnel, fail.Error) {
 		options,
 		cfg.GatewayConfig.Port,
 	)
+	if cfg.Host != "127.0.0.1" {
+		cmdString = fmt.Sprintf(
+			"ssh -i %s -C -NL %d:%s:%d %s@%s %s -p %d",
+			f.Name(),
+			localPort,
+			cfg.Host,
+			cfg.Port,
+			cfg.GatewayConfig.User,
+			cfg.GatewayConfig.Host,
+			options,
+			cfg.GatewayConfig.Port,
+		)
+	}
+
 	cmd := exec.Command("sh", "-c", cmdString)
 	cerr := cmd.Start()
 	//	err = cmd.Wait()
