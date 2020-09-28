@@ -252,8 +252,8 @@ feature:
                             USER root
 
                             RUN microdnf update -y \
-                            && microdnf install -y patch net-tools \
-                            && microdnf clean all
+                             && microdnf install -y patch net-tools \
+                             && microdnf clean all
 
                             WORKDIR /usr/local/bin
                             ADD https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 ./jq
@@ -355,6 +355,7 @@ feature:
                             EOF
                             # FIXME: forbid access on port 8080 from all but localhost
                             sfExit
+
 
                     start:
                         targets:
