@@ -16,60 +16,110 @@ import (
 // ErrorTraceProvider ...
 type ErrorTraceProvider WrappedProvider
 
-func (w ErrorTraceProvider) ListSecurityGroups() ([]*abstract.SecurityGroup, fail.Error) {
-	panic("implement me")
+func (w ErrorTraceProvider) ListSecurityGroups() (_ []*abstract.SecurityGroup, err fail.Error) {
+	defer func(prefix string) {
+		if err != nil {
+			logrus.Debugf("%s : Intercepted error: %v", prefix, err)
+		}
+	}(fmt.Sprintf("%s:ListSecurityGroups", w.Name))
+	return w.InnerProvider.ListSecurityGroups()
 }
 
 func (w ErrorTraceProvider) CreateSecurityGroup(
 	name string, description string, rules []abstract.SecurityGroupRule,
-) (*abstract.SecurityGroup, fail.Error) {
-	panic("implement me")
+) (_ *abstract.SecurityGroup, err fail.Error) {
+	defer func(prefix string) {
+		if err != nil {
+			logrus.Debugf("%s : Intercepted error: %v", prefix, err)
+		}
+	}(fmt.Sprintf("%s:CreateSecurityGroup", w.Name))
+	return w.InnerProvider.CreateSecurityGroup(name, description, rules)
 }
 
 func (w ErrorTraceProvider) InspectSecurityGroup(sgParam stacks.SecurityGroupParameter) (
-	*abstract.SecurityGroup, fail.Error,
+	_ *abstract.SecurityGroup, err fail.Error,
 ) {
-	panic("implement me")
+	defer func(prefix string) {
+		if err != nil {
+			logrus.Debugf("%s : Intercepted error: %v", prefix, err)
+		}
+	}(fmt.Sprintf("%s:InspectSecurityGroup", w.Name))
+	return w.InnerProvider.InspectSecurityGroup(sgParam)
 }
 
 func (w ErrorTraceProvider) ClearSecurityGroup(sgParam stacks.SecurityGroupParameter) (
-	*abstract.SecurityGroup, fail.Error,
+	_ *abstract.SecurityGroup, err fail.Error,
 ) {
-	panic("implement me")
+	defer func(prefix string) {
+		if err != nil {
+			logrus.Debugf("%s : Intercepted error: %v", prefix, err)
+		}
+	}(fmt.Sprintf("%s:ClearSecurityGroup", w.Name))
+	return w.InnerProvider.ClearSecurityGroup(sgParam)
 }
 
-func (w ErrorTraceProvider) DeleteSecurityGroup(sgParam stacks.SecurityGroupParameter) fail.Error {
-	panic("implement me")
+func (w ErrorTraceProvider) DeleteSecurityGroup(sgParam stacks.SecurityGroupParameter) (err fail.Error) {
+	defer func(prefix string) {
+		if err != nil {
+			logrus.Debugf("%s : Intercepted error: %v", prefix, err)
+		}
+	}(fmt.Sprintf("%s:DeleteSecurityGroup", w.Name))
+	return w.InnerProvider.DeleteSecurityGroup(sgParam)
 }
 
 func (w ErrorTraceProvider) AddRuleToSecurityGroup(
 	sgParam stacks.SecurityGroupParameter, rule abstract.SecurityGroupRule,
-) (*abstract.SecurityGroup, fail.Error) {
-	panic("implement me")
+) (_ *abstract.SecurityGroup, err fail.Error) {
+	defer func(prefix string) {
+		if err != nil {
+			logrus.Debugf("%s : Intercepted error: %v", prefix, err)
+		}
+	}(fmt.Sprintf("%s:AddRuleToSecurityGroup", w.Name))
+	return w.InnerProvider.AddRuleToSecurityGroup(sgParam, rule)
 }
 
 func (w ErrorTraceProvider) DeleteRuleFromSecurityGroup(
 	sgParam stacks.SecurityGroupParameter, ruleID string,
-) (*abstract.SecurityGroup, fail.Error) {
-	panic("implement me")
+) (_ *abstract.SecurityGroup, err fail.Error) {
+	defer func(prefix string) {
+		if err != nil {
+			logrus.Debugf("%s : Intercepted error: %v", prefix, err)
+		}
+	}(fmt.Sprintf("%s:DeleteRuleFromSecurityGroup", w.Name))
+	return w.InnerProvider.DeleteRuleFromSecurityGroup(sgParam, ruleID)
 }
 
 func (w ErrorTraceProvider) WaitHostReady(hostParam stacks.HostParameter, timeout time.Duration) (
-	*abstract.HostCore, fail.Error,
+	_ *abstract.HostCore, err fail.Error,
 ) {
-	panic("implement me")
+	defer func(prefix string) {
+		if err != nil {
+			logrus.Debugf("%s : Intercepted error: %v", prefix, err)
+		}
+	}(fmt.Sprintf("%s:WaitHostReady", w.Name))
+	return w.InnerProvider.WaitHostReady(hostParam, timeout)
 }
 
 func (w ErrorTraceProvider) BindSecurityGroupToHost(
 	hostParam stacks.HostParameter, sgParam stacks.SecurityGroupParameter,
-) fail.Error {
-	panic("implement me")
+) (err fail.Error) {
+	defer func(prefix string) {
+		if err != nil {
+			logrus.Debugf("%s : Intercepted error: %v", prefix, err)
+		}
+	}(fmt.Sprintf("%s:BindSecurityGroupToHost", w.Name))
+	return w.InnerProvider.BindSecurityGroupToHost(hostParam, sgParam)
 }
 
 func (w ErrorTraceProvider) UnbindSecurityGroupFromHost(
 	hostParam stacks.HostParameter, sgParam stacks.SecurityGroupParameter,
-) fail.Error {
-	panic("implement me")
+) (err fail.Error) {
+	defer func(prefix string) {
+		if err != nil {
+			logrus.Debugf("%s : Intercepted error: %v", prefix, err)
+		}
+	}(fmt.Sprintf("%s:UnbindSecurityGroupFromHost", w.Name))
+	return w.InnerProvider.UnbindSecurityGroupFromHost(hostParam, sgParam)
 }
 
 // Provider specific functions

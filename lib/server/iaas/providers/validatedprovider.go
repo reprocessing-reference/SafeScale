@@ -31,60 +31,80 @@ import (
 // ValidatedProvider ...
 type ValidatedProvider WrappedProvider
 
-func (w ValidatedProvider) ListSecurityGroups() ([]*abstract.SecurityGroup, fail.Error) {
-	panic("implement me")
+func (w ValidatedProvider) ListSecurityGroups() (_ []*abstract.SecurityGroup, err fail.Error) {
+	defer fail.OnPanic(&err)
+
+	return w.InnerProvider.ListSecurityGroups()
 }
 
 func (w ValidatedProvider) CreateSecurityGroup(
 	name string, description string, rules []abstract.SecurityGroupRule,
-) (*abstract.SecurityGroup, fail.Error) {
-	panic("implement me")
+) (_ *abstract.SecurityGroup, err fail.Error) {
+	defer fail.OnPanic(&err)
+
+	return w.InnerProvider.CreateSecurityGroup(name, description, rules)
 }
 
 func (w ValidatedProvider) InspectSecurityGroup(sgParam stacks.SecurityGroupParameter) (
-	*abstract.SecurityGroup, fail.Error,
+	_ *abstract.SecurityGroup, err fail.Error,
 ) {
-	panic("implement me")
+	defer fail.OnPanic(&err)
+
+	return w.InnerProvider.InspectSecurityGroup(sgParam)
 }
 
 func (w ValidatedProvider) ClearSecurityGroup(sgParam stacks.SecurityGroupParameter) (
-	*abstract.SecurityGroup, fail.Error,
+	_ *abstract.SecurityGroup, err fail.Error,
 ) {
-	panic("implement me")
+	defer fail.OnPanic(&err)
+
+	return w.InnerProvider.ClearSecurityGroup(sgParam)
 }
 
-func (w ValidatedProvider) DeleteSecurityGroup(sgParam stacks.SecurityGroupParameter) fail.Error {
-	panic("implement me")
+func (w ValidatedProvider) DeleteSecurityGroup(sgParam stacks.SecurityGroupParameter) (err fail.Error) {
+	defer fail.OnPanic(&err)
+
+	return w.InnerProvider.DeleteSecurityGroup(sgParam)
 }
 
 func (w ValidatedProvider) AddRuleToSecurityGroup(
 	sgParam stacks.SecurityGroupParameter, rule abstract.SecurityGroupRule,
-) (*abstract.SecurityGroup, fail.Error) {
-	panic("implement me")
+) (_ *abstract.SecurityGroup, err fail.Error) {
+	defer fail.OnPanic(&err)
+
+	return w.InnerProvider.AddRuleToSecurityGroup(sgParam, rule)
 }
 
 func (w ValidatedProvider) DeleteRuleFromSecurityGroup(
 	sgParam stacks.SecurityGroupParameter, ruleID string,
-) (*abstract.SecurityGroup, fail.Error) {
-	panic("implement me")
+) (_ *abstract.SecurityGroup, err fail.Error) {
+	defer fail.OnPanic(&err)
+
+	return w.InnerProvider.DeleteRuleFromSecurityGroup(sgParam, ruleID)
 }
 
 func (w ValidatedProvider) WaitHostReady(hostParam stacks.HostParameter, timeout time.Duration) (
-	*abstract.HostCore, fail.Error,
+	_ *abstract.HostCore, err fail.Error,
 ) {
-	panic("implement me")
+	defer fail.OnPanic(&err)
+
+	return w.InnerProvider.WaitHostReady(hostParam, timeout)
 }
 
 func (w ValidatedProvider) BindSecurityGroupToHost(
 	hostParam stacks.HostParameter, sgParam stacks.SecurityGroupParameter,
-) fail.Error {
-	panic("implement me")
+) (err fail.Error) {
+	defer fail.OnPanic(&err)
+
+	return w.InnerProvider.BindSecurityGroupToHost(hostParam, sgParam)
 }
 
 func (w ValidatedProvider) UnbindSecurityGroupFromHost(
 	hostParam stacks.HostParameter, sgParam stacks.SecurityGroupParameter,
-) fail.Error {
-	panic("implement me")
+) (err fail.Error) {
+	defer fail.OnPanic(&err)
+
+	return w.InnerProvider.UnbindSecurityGroupFromHost(hostParam, sgParam)
 }
 
 func (w ValidatedProvider) CreateVIP(first string, second string) (_ *abstract.VirtualIP, err fail.Error) {

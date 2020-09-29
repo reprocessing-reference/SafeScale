@@ -91,7 +91,7 @@ func normalizeError(in error) (err error) {
 func normalizeURLError(err *url.Error) fail.Error {
 	switch commErr := err.Err.(type) {
 	case *net.DNSError:
-		return fail.InvalidRequestError("failed to resolve by DNS: %v", commErr)
+		return fail.NetworkIssueError("failed to resolve by DNS: %v", commErr)
 	default:
 		return fail.InvalidRequestError("failed to communicate (error type: %s): %v", reflect.TypeOf(commErr).String(), commErr)
 	}

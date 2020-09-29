@@ -15,58 +15,278 @@ import (
 // RetryProvider ...
 type RetryProvider WrappedProvider
 
-func (w RetryProvider) ListSecurityGroups() ([]*abstract.SecurityGroup, fail.Error) {
-	panic("implement me")
+func (w RetryProvider) ListSecurityGroups() (res []*abstract.SecurityGroup, err fail.Error) {
+	retryErr := retry.WhileUnsuccessful(
+		func() error {
+			res, err = w.InnerProvider.ListSecurityGroups()
+			if err != nil {
+				switch err.(type) {
+				case *fail.ErrTimeout:
+					return err
+				case *fail.ErrNetworkIssue:
+					return err
+				default:
+					return nil
+				}
+			}
+			return nil
+		},
+		0,
+		temporal.GetContextTimeout(),
+	)
+	if retryErr != nil {
+		return res, retryErr
+	}
+
+	return res, err
 }
 
 func (w RetryProvider) CreateSecurityGroup(
 	name string, description string, rules []abstract.SecurityGroupRule,
-) (*abstract.SecurityGroup, fail.Error) {
-	panic("implement me")
+) (res *abstract.SecurityGroup, err fail.Error) {
+	retryErr := retry.WhileUnsuccessful(
+		func() error {
+			res, err = w.InnerProvider.CreateSecurityGroup(name, description, rules)
+			if err != nil {
+				switch err.(type) {
+				case *fail.ErrTimeout:
+					return err
+				case *fail.ErrNetworkIssue:
+					return err
+				default:
+					return nil
+				}
+			}
+			return nil
+		},
+		0,
+		temporal.GetContextTimeout(),
+	)
+	if retryErr != nil {
+		return res, retryErr
+	}
+
+	return res, err
 }
 
 func (w RetryProvider) InspectSecurityGroup(sgParam stacks.SecurityGroupParameter) (
-	*abstract.SecurityGroup, fail.Error,
+	res *abstract.SecurityGroup, err fail.Error,
 ) {
-	panic("implement me")
+	retryErr := retry.WhileUnsuccessful(
+		func() error {
+			res, err = w.InnerProvider.InspectSecurityGroup(sgParam)
+			if err != nil {
+				switch err.(type) {
+				case *fail.ErrTimeout:
+					return err
+				case *fail.ErrNetworkIssue:
+					return err
+				default:
+					return nil
+				}
+			}
+			return nil
+		},
+		0,
+		temporal.GetContextTimeout(),
+	)
+	if retryErr != nil {
+		return res, retryErr
+	}
+
+	return res, err
 }
 
-func (w RetryProvider) ClearSecurityGroup(sgParam stacks.SecurityGroupParameter) (*abstract.SecurityGroup, fail.Error) {
-	panic("implement me")
+func (w RetryProvider) ClearSecurityGroup(sgParam stacks.SecurityGroupParameter) (res *abstract.SecurityGroup, err fail.Error) {
+	retryErr := retry.WhileUnsuccessful(
+		func() error {
+			res, err = w.InnerProvider.ClearSecurityGroup(sgParam)
+			if err != nil {
+				switch err.(type) {
+				case *fail.ErrTimeout:
+					return err
+				case *fail.ErrNetworkIssue:
+					return err
+				default:
+					return nil
+				}
+			}
+			return nil
+		},
+		0,
+		temporal.GetContextTimeout(),
+	)
+	if retryErr != nil {
+		return res, retryErr
+	}
+
+	return res, err
 }
 
-func (w RetryProvider) DeleteSecurityGroup(sgParam stacks.SecurityGroupParameter) fail.Error {
-	panic("implement me")
+func (w RetryProvider) DeleteSecurityGroup(sgParam stacks.SecurityGroupParameter) (err fail.Error) {
+	retryErr := retry.WhileUnsuccessful(
+		func() error {
+			err = w.InnerProvider.DeleteSecurityGroup(sgParam)
+			if err != nil {
+				switch err.(type) {
+				case *fail.ErrTimeout:
+					return err
+				case *fail.ErrNetworkIssue:
+					return err
+				default:
+					return nil
+				}
+			}
+			return nil
+		},
+		0,
+		temporal.GetContextTimeout(),
+	)
+	if retryErr != nil {
+		return retryErr
+	}
+
+	return err
 }
 
 func (w RetryProvider) AddRuleToSecurityGroup(
 	sgParam stacks.SecurityGroupParameter, rule abstract.SecurityGroupRule,
-) (*abstract.SecurityGroup, fail.Error) {
-	panic("implement me")
+) (res *abstract.SecurityGroup, err fail.Error) {
+	retryErr := retry.WhileUnsuccessful(
+		func() error {
+			res, err = w.InnerProvider.AddRuleToSecurityGroup(sgParam, rule)
+			if err != nil {
+				switch err.(type) {
+				case *fail.ErrTimeout:
+					return err
+				case *fail.ErrNetworkIssue:
+					return err
+				default:
+					return nil
+				}
+			}
+			return nil
+		},
+		0,
+		temporal.GetContextTimeout(),
+	)
+	if retryErr != nil {
+		return res, retryErr
+	}
+
+	return res, err
 }
 
 func (w RetryProvider) DeleteRuleFromSecurityGroup(
 	sgParam stacks.SecurityGroupParameter, ruleID string,
-) (*abstract.SecurityGroup, fail.Error) {
-	panic("implement me")
+) (res *abstract.SecurityGroup, err fail.Error) {
+	retryErr := retry.WhileUnsuccessful(
+		func() error {
+			res, err = w.InnerProvider.DeleteRuleFromSecurityGroup(sgParam, ruleID)
+			if err != nil {
+				switch err.(type) {
+				case *fail.ErrTimeout:
+					return err
+				case *fail.ErrNetworkIssue:
+					return err
+				default:
+					return nil
+				}
+			}
+			return nil
+		},
+		0,
+		temporal.GetContextTimeout(),
+	)
+	if retryErr != nil {
+		return res, retryErr
+	}
+
+	return res, err
 }
 
 func (w RetryProvider) WaitHostReady(hostParam stacks.HostParameter, timeout time.Duration) (
-	*abstract.HostCore, fail.Error,
+	res *abstract.HostCore, err fail.Error,
 ) {
-	panic("implement me")
+	retryErr := retry.WhileUnsuccessful(
+		func() error {
+			res, err = w.InnerProvider.WaitHostReady(hostParam, timeout)
+			if err != nil {
+				switch err.(type) {
+				case *fail.ErrTimeout:
+					return err
+				case *fail.ErrNetworkIssue:
+					return err
+				default:
+					return nil
+				}
+			}
+			return nil
+		},
+		0,
+		temporal.GetContextTimeout(),
+	)
+	if retryErr != nil {
+		return res, retryErr
+	}
+
+	return res, err
 }
 
 func (w RetryProvider) BindSecurityGroupToHost(
 	hostParam stacks.HostParameter, sgParam stacks.SecurityGroupParameter,
-) fail.Error {
-	panic("implement me")
+) (err fail.Error) {
+	retryErr := retry.WhileUnsuccessful(
+		func() error {
+			err = w.InnerProvider.BindSecurityGroupToHost(hostParam, sgParam)
+			if err != nil {
+				switch err.(type) {
+				case *fail.ErrTimeout:
+					return err
+				case *fail.ErrNetworkIssue:
+					return err
+				default:
+					return nil
+				}
+			}
+			return nil
+		},
+		0,
+		temporal.GetContextTimeout(),
+	)
+	if retryErr != nil {
+		return retryErr
+	}
+
+	return err
 }
 
 func (w RetryProvider) UnbindSecurityGroupFromHost(
 	hostParam stacks.HostParameter, sgParam stacks.SecurityGroupParameter,
-) fail.Error {
-	panic("implement me")
+) (err fail.Error) {
+	retryErr := retry.WhileUnsuccessful(
+		func() error {
+			err = w.InnerProvider.UnbindSecurityGroupFromHost(hostParam, sgParam)
+			if err != nil {
+				switch err.(type) {
+				case *fail.ErrTimeout:
+					return err
+				case *fail.ErrNetworkIssue:
+					return err
+				default:
+					return nil
+				}
+			}
+			return nil
+		},
+		0,
+		temporal.GetContextTimeout(),
+	)
+	if retryErr != nil {
+		return retryErr
+	}
+
+	return err
 }
 
 func (w RetryProvider) CreateVIP(first string, second string) (res *abstract.VirtualIP, err fail.Error) {
@@ -77,7 +297,7 @@ func (w RetryProvider) CreateVIP(first string, second string) (res *abstract.Vir
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -103,8 +323,7 @@ func (w RetryProvider) AddPublicIPToVIP(res *abstract.VirtualIP) (err fail.Error
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -130,8 +349,7 @@ func (w RetryProvider) BindHostToVIP(vip *abstract.VirtualIP, hostID string) (er
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -157,8 +375,7 @@ func (w RetryProvider) UnbindHostFromVIP(vip *abstract.VirtualIP, hostID string)
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -185,7 +402,7 @@ func (w RetryProvider) DeleteVIP(vip *abstract.VirtualIP) (err fail.Error) {
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -222,7 +439,7 @@ func (w RetryProvider) Build(something map[string]interface{}) (p Provider, err 
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -249,7 +466,7 @@ func (w RetryProvider) ListImages(all bool) (res []abstract.Image, err fail.Erro
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -276,7 +493,7 @@ func (w RetryProvider) ListTemplates(all bool) (res []abstract.HostTemplate, err
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -325,7 +542,7 @@ func (w RetryProvider) ListAvailabilityZones() (res map[string]bool, err fail.Er
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -353,7 +570,7 @@ func (w RetryProvider) ListRegions() (res []string, err fail.Error) {
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -381,7 +598,7 @@ func (w RetryProvider) InspectImage(id string) (res *abstract.Image, err fail.Er
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -409,7 +626,7 @@ func (w RetryProvider) InspectTemplate(id string) (res *abstract.HostTemplate, e
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -437,7 +654,7 @@ func (w RetryProvider) CreateKeyPair(name string) (kp *abstract.KeyPair, err fai
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -465,7 +682,7 @@ func (w RetryProvider) InspectKeyPair(id string) (kp *abstract.KeyPair, err fail
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -493,7 +710,7 @@ func (w RetryProvider) ListKeyPairs() (res []abstract.KeyPair, err fail.Error) {
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -521,7 +738,7 @@ func (w RetryProvider) DeleteKeyPair(id string) (err fail.Error) {
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -549,7 +766,7 @@ func (w RetryProvider) CreateNetwork(req abstract.NetworkRequest) (res *abstract
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -577,7 +794,7 @@ func (w RetryProvider) InspectNetwork(id string) (res *abstract.Network, err fai
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -605,7 +822,7 @@ func (w RetryProvider) InspectNetworkByName(name string) (res *abstract.Network,
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -633,7 +850,7 @@ func (w RetryProvider) ListNetworks() (res []*abstract.Network, err fail.Error) 
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -661,7 +878,7 @@ func (w RetryProvider) DeleteNetwork(id string) (err fail.Error) {
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -691,7 +908,7 @@ func (w RetryProvider) CreateHost(request abstract.HostRequest) (
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -719,7 +936,7 @@ func (w RetryProvider) InspectHost(something stacks.HostParameter) (res *abstrac
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -747,7 +964,7 @@ func (w RetryProvider) InspectHostByName(name string) (res *abstract.HostCore, e
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -775,7 +992,7 @@ func (w RetryProvider) GetHostState(something stacks.HostParameter) (res hoststa
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -803,7 +1020,7 @@ func (w RetryProvider) ListHosts(b bool) (res abstract.HostList, err fail.Error)
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -831,7 +1048,7 @@ func (w RetryProvider) DeleteHost(id stacks.HostParameter) (err fail.Error) {
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -859,7 +1076,7 @@ func (w RetryProvider) StopHost(id stacks.HostParameter) (err fail.Error) {
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -887,7 +1104,7 @@ func (w RetryProvider) StartHost(id stacks.HostParameter) (err fail.Error) {
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -915,7 +1132,7 @@ func (w RetryProvider) RebootHost(id stacks.HostParameter) (err fail.Error) {
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -943,7 +1160,7 @@ func (w RetryProvider) ResizeHost(id stacks.HostParameter, request abstract.Host
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -971,7 +1188,7 @@ func (w RetryProvider) CreateVolume(request abstract.VolumeRequest) (res *abstra
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -999,7 +1216,7 @@ func (w RetryProvider) InspectVolume(id string) (res *abstract.Volume, err fail.
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -1027,7 +1244,7 @@ func (w RetryProvider) ListVolumes() (res []abstract.Volume, err fail.Error) {
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -1055,7 +1272,7 @@ func (w RetryProvider) DeleteVolume(id string) (err fail.Error) {
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -1083,7 +1300,7 @@ func (w RetryProvider) CreateVolumeAttachment(request abstract.VolumeAttachmentR
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -1111,7 +1328,7 @@ func (w RetryProvider) InspectVolumeAttachment(serverID, id string) (res *abstra
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -1139,7 +1356,7 @@ func (w RetryProvider) ListVolumeAttachments(serverID string) (res []abstract.Vo
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil
@@ -1167,7 +1384,7 @@ func (w RetryProvider) DeleteVolumeAttachment(serverID, id string) (err fail.Err
 				case *fail.ErrTimeout:
 					return err
 
-				case *fail.ErrInvalidRequest:
+				case *fail.ErrNetworkIssue:
 					return err
 				default:
 					return nil

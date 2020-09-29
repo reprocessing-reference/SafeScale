@@ -17,67 +17,79 @@ import (
 type LoggedProvider WrappedProvider
 
 func (w LoggedProvider) ListSecurityGroups() ([]*abstract.SecurityGroup, fail.Error) {
-	panic("implement me")
+	defer w.prepare(w.trace("ListSecurityGroups"))
+	return w.InnerProvider.ListSecurityGroups()
 }
 
 func (w LoggedProvider) CreateSecurityGroup(
 	name string, description string, rules []abstract.SecurityGroupRule,
 ) (*abstract.SecurityGroup, fail.Error) {
-	panic("implement me")
+	defer w.prepare(w.trace("CreateSecurityGroup"))
+	return w.InnerProvider.CreateSecurityGroup(name, description, rules)
 }
 
 func (w LoggedProvider) InspectSecurityGroup(sgParam stacks.SecurityGroupParameter) (
 	*abstract.SecurityGroup, fail.Error,
 ) {
-	panic("implement me")
+	defer w.prepare(w.trace("InspectSecurityGroup"))
+	return w.InnerProvider.InspectSecurityGroup(sgParam)
 }
 
 func (w LoggedProvider) ClearSecurityGroup(sgParam stacks.SecurityGroupParameter) (
 	*abstract.SecurityGroup, fail.Error,
 ) {
-	panic("implement me")
+	defer w.prepare(w.trace("ClearSecurityGroup"))
+	return w.InnerProvider.ClearSecurityGroup(sgParam)
 }
 
 func (w LoggedProvider) DeleteSecurityGroup(sgParam stacks.SecurityGroupParameter) fail.Error {
-	panic("implement me")
+	defer w.prepare(w.trace("DeleteSecurityGroup"))
+	return w.InnerProvider.DeleteSecurityGroup(sgParam)
 }
 
 func (w LoggedProvider) AddRuleToSecurityGroup(
 	sgParam stacks.SecurityGroupParameter, rule abstract.SecurityGroupRule,
 ) (*abstract.SecurityGroup, fail.Error) {
-	panic("implement me")
+	defer w.prepare(w.trace("AddRuleToSecurityGroup"))
+	return w.InnerProvider.AddRuleToSecurityGroup(sgParam, rule)
 }
 
 func (w LoggedProvider) DeleteRuleFromSecurityGroup(
 	sgParam stacks.SecurityGroupParameter, ruleID string,
 ) (*abstract.SecurityGroup, fail.Error) {
-	panic("implement me")
+	defer w.prepare(w.trace("DeleteRuleFromSecurityGroup"))
+	return w.InnerProvider.DeleteRuleFromSecurityGroup(sgParam, ruleID)
 }
 
 func (w LoggedProvider) WaitHostReady(hostParam stacks.HostParameter, timeout time.Duration) (
 	*abstract.HostCore, fail.Error,
 ) {
-	panic("implement me")
+	defer w.prepare(w.trace("WaitHostReady"))
+	return w.InnerProvider.WaitHostReady(hostParam, timeout)
 }
 
 func (w LoggedProvider) BindSecurityGroupToHost(
 	hostParam stacks.HostParameter, sgParam stacks.SecurityGroupParameter,
 ) fail.Error {
-	panic("implement me")
+	defer w.prepare(w.trace("BindSecurityGroupToHost"))
+	return w.InnerProvider.BindSecurityGroupToHost(hostParam, sgParam)
 }
 
 func (w LoggedProvider) UnbindSecurityGroupFromHost(
 	hostParam stacks.HostParameter, sgParam stacks.SecurityGroupParameter,
 ) fail.Error {
-	panic("implement me")
+	defer w.prepare(w.trace("UnbindSecurityGroupFromHost"))
+	return w.InnerProvider.UnbindSecurityGroupFromHost(hostParam, sgParam)
 }
 
 func (w LoggedProvider) GetAuthenticationOptions() (Config, fail.Error) {
-	panic("implement me")
+	defer w.prepare(w.trace("GetAuthenticationOptions"))
+	return w.InnerProvider.GetAuthenticationOptions()
 }
 
 func (w LoggedProvider) GetConfigurationOptions() (Config, fail.Error) {
-	panic("implement me")
+	defer w.prepare(w.trace("GetConfigurationOptions"))
+	return w.InnerProvider.GetConfigurationOptions()
 }
 
 // Provider specific functions
