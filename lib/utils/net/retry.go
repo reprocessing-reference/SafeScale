@@ -72,12 +72,24 @@ func normalizeError(in error) (err error) {
 	if in != nil {
 		switch realErr := in.(type) {
 		case *url.Error:
-			return normalizeURLError(realErr)
+			normalized := normalizeURLError(realErr)
+			switch normalized.(type) {
+			case *fail.ErrNetworkIssue:
+				return normalized
+			default:
+				return retry.StopRetryError(normalized)
+			}
 		case fail.Error: // a fail.Error may contain a cause of type *url.Error; it's the way used to propagate an *url.Error received by drivers.
 			// In this case, normalize this url.Error accordingly
 			switch cause := realErr.Cause().(type) {
 			case *url.Error:
-				return normalizeURLError(cause)
+				normalized := normalizeURLError(cause)
+				switch normalized.(type) {
+				case *fail.ErrNetworkIssue:
+					return normalized
+				default:
+					return retry.StopRetryError(normalized)
+				}
 			}
 			return retry.StopRetryError(in)
 		default:
@@ -92,6 +104,8 @@ func normalizeURLError(err *url.Error) fail.Error {
 	switch commErr := err.Err.(type) {
 	case *net.DNSError:
 		return fail.NetworkIssueError("failed to resolve by DNS: %v", commErr)
+	case *net.UnknownNetworkError:
+		return fail.NetworkIssueError("unknown network error: %v", commErr)
 	default:
 		return fail.InvalidRequestError("failed to communicate (error type: %s): %v", reflect.TypeOf(commErr).String(), commErr)
 	}

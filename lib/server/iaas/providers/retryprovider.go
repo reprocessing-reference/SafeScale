@@ -401,7 +401,6 @@ func (w RetryProvider) DeleteVIP(vip *abstract.VirtualIP) (err fail.Error) {
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -438,7 +437,6 @@ func (w RetryProvider) Build(something map[string]interface{}) (p Provider, err 
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -465,7 +463,6 @@ func (w RetryProvider) ListImages(all bool) (res []abstract.Image, err fail.Erro
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -492,7 +489,6 @@ func (w RetryProvider) ListTemplates(all bool) (res []abstract.HostTemplate, err
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -541,7 +537,6 @@ func (w RetryProvider) ListAvailabilityZones() (res map[string]bool, err fail.Er
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -569,7 +564,6 @@ func (w RetryProvider) ListRegions() (res []string, err fail.Error) {
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -597,7 +591,6 @@ func (w RetryProvider) InspectImage(id string) (res *abstract.Image, err fail.Er
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -625,7 +618,6 @@ func (w RetryProvider) InspectTemplate(id string) (res *abstract.HostTemplate, e
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -653,7 +645,6 @@ func (w RetryProvider) CreateKeyPair(name string) (kp *abstract.KeyPair, err fai
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -681,7 +672,6 @@ func (w RetryProvider) InspectKeyPair(id string) (kp *abstract.KeyPair, err fail
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -709,7 +699,6 @@ func (w RetryProvider) ListKeyPairs() (res []abstract.KeyPair, err fail.Error) {
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -737,7 +726,6 @@ func (w RetryProvider) DeleteKeyPair(id string) (err fail.Error) {
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -765,7 +753,6 @@ func (w RetryProvider) CreateNetwork(req abstract.NetworkRequest) (res *abstract
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -793,7 +780,6 @@ func (w RetryProvider) InspectNetwork(id string) (res *abstract.Network, err fai
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -821,7 +807,6 @@ func (w RetryProvider) InspectNetworkByName(name string) (res *abstract.Network,
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -849,7 +834,6 @@ func (w RetryProvider) ListNetworks() (res []*abstract.Network, err fail.Error) 
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -877,7 +861,6 @@ func (w RetryProvider) DeleteNetwork(id string) (err fail.Error) {
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -907,7 +890,6 @@ func (w RetryProvider) CreateHost(request abstract.HostRequest) (
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -935,7 +917,6 @@ func (w RetryProvider) InspectHost(something stacks.HostParameter) (res *abstrac
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -963,7 +944,6 @@ func (w RetryProvider) InspectHostByName(name string) (res *abstract.HostCore, e
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -991,7 +971,6 @@ func (w RetryProvider) GetHostState(something stacks.HostParameter) (res hoststa
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -1019,7 +998,6 @@ func (w RetryProvider) ListHosts(b bool) (res abstract.HostList, err fail.Error)
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -1047,7 +1025,6 @@ func (w RetryProvider) DeleteHost(id stacks.HostParameter) (err fail.Error) {
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -1075,7 +1052,6 @@ func (w RetryProvider) StopHost(id stacks.HostParameter) (err fail.Error) {
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -1103,7 +1079,6 @@ func (w RetryProvider) StartHost(id stacks.HostParameter) (err fail.Error) {
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -1131,7 +1106,6 @@ func (w RetryProvider) RebootHost(id stacks.HostParameter) (err fail.Error) {
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -1159,7 +1133,6 @@ func (w RetryProvider) ResizeHost(id stacks.HostParameter, request abstract.Host
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -1187,7 +1160,6 @@ func (w RetryProvider) CreateVolume(request abstract.VolumeRequest) (res *abstra
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -1215,7 +1187,6 @@ func (w RetryProvider) InspectVolume(id string) (res *abstract.Volume, err fail.
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -1243,7 +1214,6 @@ func (w RetryProvider) ListVolumes() (res []abstract.Volume, err fail.Error) {
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -1271,7 +1241,6 @@ func (w RetryProvider) DeleteVolume(id string) (err fail.Error) {
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -1299,7 +1268,6 @@ func (w RetryProvider) CreateVolumeAttachment(request abstract.VolumeAttachmentR
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -1327,7 +1295,6 @@ func (w RetryProvider) InspectVolumeAttachment(serverID, id string) (res *abstra
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -1355,7 +1322,6 @@ func (w RetryProvider) ListVolumeAttachments(serverID string) (res []abstract.Vo
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
@@ -1383,7 +1349,6 @@ func (w RetryProvider) DeleteVolumeAttachment(serverID, id string) (err fail.Err
 				switch err.(type) {
 				case *fail.ErrTimeout:
 					return err
-
 				case *fail.ErrNetworkIssue:
 					return err
 				default:
