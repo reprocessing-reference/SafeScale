@@ -650,6 +650,10 @@ func (svc service) CreateHostWithKeyPair(request abstract.HostRequest) (*abstrac
 	if rerr != nil {
 		return nil, nil, nil, rerr
 	}
+
+	if host == nil {
+		return nil, nil, nil, fail.InconsistentError("host creation returned with an empty host and without reporting an error")
+	}
 	return host, userData, kp, nil
 }
 
