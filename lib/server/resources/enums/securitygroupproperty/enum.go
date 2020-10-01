@@ -20,8 +20,8 @@ package securitygroupproperty
 type Enum string
 
 const (
-    // HostsV1 contains optional additional info describing host (purpose, ...)
-    HostsV1 = "1"
-    // NetworksV1 contains list of hosts attached to the network
-    NetworksV1 = "2"
+	// HostsV1 contains optional additional info describing host (purpose, ...)
+	HostsV1 = "1"
+	// NetworksV1 contains list of hosts attached to the network
+	NetworksV1 = "2"
 )

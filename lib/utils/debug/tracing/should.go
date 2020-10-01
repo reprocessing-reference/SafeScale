@@ -17,25 +17,25 @@
 package tracing
 
 import (
-    "strings"
+	"strings"
 )
 
 // ShouldTrace tells if a specific trace is asked for
 func ShouldTrace(key string) bool {
-    if key == "" {
-        return false
-    }
-    parts := strings.Split(key, ".")
-    // If key.subkey is defined, return its value
-    if len(parts) >= 2 {
-        setting, ok := settings[parts[0]][parts[1]]
-        if ok {
-            return setting
-        }
-    }
-    // If key is defined and there is no subkey, return true (key enabled as a whole)
-    if _, ok := settings[parts[0]]; ok && len(settings[parts[0]]) == 0 {
-        return true
-    }
-    return false
+	if key == "" {
+		return false
+	}
+	parts := strings.Split(key, ".")
+	// If key.subkey is defined, return its value
+	if len(parts) >= 2 {
+		setting, ok := settings[parts[0]][parts[1]]
+		if ok {
+			return setting
+		}
+	}
+	// If key is defined and there is no subkey, return true (key enabled as a whole)
+	if _, ok := settings[parts[0]]; ok && len(settings[parts[0]]) == 0 {
+		return true
+	}
+	return false
 }

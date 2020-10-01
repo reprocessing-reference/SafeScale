@@ -557,7 +557,7 @@ func (s *Stack) WaitHostState(hostParam stacks.HostParameter, state hoststate.En
 				return innerXErr
 			}
 			if st != state {
-				return fail.NewError("wrong st")
+				return fail.NewError("wrong state")
 			}
 			if st == hoststate.ERROR {
 				return retry.StopRetryError(fail.NewError("host in error state"))
@@ -923,6 +923,42 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 		},
 		KeypairName: creationKeyPair.Name,
 	}
+
+	if request.DiskSize > 0 {
+
+		tpl, err := s.InspectTemplate(request.TemplateID)
+		if err != nil {
+			return nil, nil, err
+		}
+		if tpl == nil {
+			return nil, nil, fail.InvalidParameterError("request.TemplateID", "Template does not exist")
+		}
+
+		var diskSize int
+		diskSize = tpl.DiskSize
+
+		if request.DiskSize > diskSize {
+			diskSize = request.DiskSize
+		}
+
+		if diskSize < 10 {
+			diskSize = 10
+		}
+
+		vmsRequest.BlockDeviceMappings = []osc.BlockDeviceMappingVmCreation{
+			{
+				Bsu: osc.BsuToCreate{
+					DeleteOnVmDeletion: true,
+					SnapshotId:         "",
+					VolumeSize:         int32(diskSize),
+					VolumeType:         s.volumeType(s.Options.Compute.DefaultVolumeSpeed),
+				},
+				NoDevice:   "true",
+				DeviceName: "/dev/sda1",
+			},
+		}
+	}
+
 	resVM, _, err := s.client.VmApi.CreateVms(s.auth, &osc.CreateVmsOpts{
 		CreateVmsRequest: optional.NewInterface(vmsRequest),
 	})
@@ -971,11 +1007,6 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 			udc.PublicIP = ip.PublicIp
 			vm.PublicIp = udc.PublicIP
 		}
-	}
-
-	xerr = s.addVolume(&request, vm.VmId)
-	if xerr != nil {
-		return nullAHF, nullUDC, xerr
 	}
 
 	xerr = s.addGPUs(&request, vm.VmId)

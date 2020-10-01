@@ -50,9 +50,12 @@ func (s *Stack) createSubnet(req abstract.NetworkRequest, vpcID string) (_ *osc.
 			deleteSubnetRequest := osc.DeleteSubnetRequest{
 				SubnetId: resSubnet.Subnet.SubnetId,
 			}
-			_, _, derr := s.client.SubnetApi.CreateSubnet(s.auth, &osc.CreateSubnetOpts{
-				CreateSubnetRequest: optional.NewInterface(deleteSubnetRequest),
-			})
+
+			_, _, derr := s.client.SubnetApi.DeleteSubnet(
+				s.auth, &osc.DeleteSubnetOpts{
+					DeleteSubnetRequest: optional.NewInterface(deleteSubnetRequest),
+				},
+			)
 			if derr != nil {
 				_ = xerr.AddConsequence(normalizeError(derr))
 			}

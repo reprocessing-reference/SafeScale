@@ -22,7 +22,7 @@ package securitygroupruleaction
 type Enum uint8
 
 const (
-    UNKNOWN Enum = iota
-    ALLOW // to allow access when rule match
-    DENY  // to deny access when rule match
+	UNKNOWN Enum = iota
+	ALLOW        // to allow access when rule match
+	DENY         // to deny access when rule match
 )

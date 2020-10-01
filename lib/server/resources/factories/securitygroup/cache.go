@@ -17,18 +17,18 @@
 package securitygroup
 
 import (
-    "sync"
+	"sync"
 
-    "github.com/CS-SI/SafeScale/lib/utils"
+	"github.com/CS-SI/SafeScale/lib/utils"
 )
 
 var securityGroupCache struct {
-    lock   sync.Mutex
-    ByID   utils.Cache
-    ByName utils.Cache
+	lock   sync.Mutex
+	ByID   utils.Cache
+	ByName utils.Cache
 }
 
 func init() {
-    securityGroupCache.ByID = utils.NewMapCache()
-    securityGroupCache.ByName = utils.NewMapCache()
+	securityGroupCache.ByID = utils.NewMapCache()
+	securityGroupCache.ByName = utils.NewMapCache()
 }
