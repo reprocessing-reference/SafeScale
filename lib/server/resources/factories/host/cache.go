@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020, CS Systemes d'Information, http://www.c-s.fr
+ * Copyright 2018-2020, CS Systemes d'Information, http://csgroup.eu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,18 +17,18 @@
 package host
 
 import (
-    "sync"
+	"sync"
 
-    "github.com/CS-SI/SafeScale/lib/utils"
+	"github.com/CS-SI/SafeScale/lib/utils"
 )
 
 var hostCache struct {
-    lock   sync.Mutex
-    ByID   utils.Cache
-    ByName utils.Cache
+	lock   sync.Mutex
+	ByID   utils.Cache
+	ByName utils.Cache
 }
 
 func init() {
-    hostCache.ByID = utils.NewMapCache()
-    hostCache.ByName = utils.NewMapCache()
+	hostCache.ByID = utils.NewMapCache()
+	hostCache.ByName = utils.NewMapCache()
 }

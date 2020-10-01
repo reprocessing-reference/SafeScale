@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020, CS Systemes d'Information, http://www.c-s.fr
+ * Copyright 2018-2020, CS Systemes d'Information, http://csgroup.eu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ import "github.com/CS-SI/SafeScale/lib/utils/fail"
 
 // normalizeError translates AWS error to SafeScale one
 func normalizeError(err error) fail.Error {
-    if err == nil {
-        return nil
-    }
-    return fail.ToError(err)
+	if err == nil {
+		return nil
+	}
+	return fail.ToError(err)
 }
