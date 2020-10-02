@@ -75,7 +75,7 @@ func NewTaskGroupWithContext(ctx context.Context, parentTask Task) (*taskGroup, 
 	return newTaskGroup(ctx, parentTask)
 }
 
-func newTaskGroup(ctx context.Context, parentTask Task) (tg *taskGroup, err fail.Error) {
+func newTaskGroup(ctx context.Context, parentTask Task) (tg *taskGroup, xerr fail.Error) {
 	var t Task
 
 	if parentTask == nil {

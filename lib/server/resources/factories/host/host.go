@@ -52,7 +52,7 @@ func List(task concurrency.Task, svc iaas.Service, all bool) (abstract.HostList,
 }
 
 // New creates an instance of resources.Host
-func New(svc iaas.Service) (_ resources.Host, err fail.Error) {
+func New(svc iaas.Service) (_ resources.Host, xerr fail.Error) {
 	if svc == nil {
 		return nil, fail.InvalidInstanceError()
 	}
@@ -64,7 +64,7 @@ func New(svc iaas.Service) (_ resources.Host, err fail.Error) {
 }
 
 // Load loads the metadata of host and returns an instance of resources.Host
-func Load(task concurrency.Task, svc iaas.Service, ref string) (_ resources.Host, err fail.Error) {
+func Load(task concurrency.Task, svc iaas.Service, ref string) (_ resources.Host, xerr fail.Error) {
 	if task.IsNull() {
 		return nil, fail.InvalidParameterError("task", "cannot be nil")
 	}

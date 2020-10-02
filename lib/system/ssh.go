@@ -854,14 +854,14 @@ func (ssh *SSHConfig) WaitServerReady(task concurrency.Task, phase string, timeo
 }
 
 // Copy copies a file/directory from/to local to/from remote
-func (ssh *SSHConfig) Copy(task concurrency.Task, remotePath, localPath string, isUpload bool) (errc int, stdout string, stderr string, err fail.Error) {
+func (ssh *SSHConfig) Copy(task concurrency.Task, remotePath, localPath string, isUpload bool) (errc int, stdout string, stderr string, xerr fail.Error) {
 	return ssh.copy(task, remotePath, localPath, isUpload, 0)
 }
 
 // CopyWithTimeout copies a file/directory from/to local to/from remote, and fails after 'timeout'
 func (ssh *SSHConfig) CopyWithTimeout(
 	task concurrency.Task, remotePath, localPath string, isUpload bool, timeout time.Duration,
-) (errc int, stdout string, stderr string, err fail.Error) {
+) (errc int, stdout string, stderr string, xerr fail.Error) {
 
 	return ssh.copy(task, remotePath, localPath, isUpload, timeout)
 }
