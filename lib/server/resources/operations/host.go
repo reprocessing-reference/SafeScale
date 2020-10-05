@@ -482,6 +482,10 @@ func (rh *host) Create(task concurrency.Task, hostReq abstract.HostRequest, host
 		return nil, fail.Wrap(xerr, "failed to create compute resource '%s'", hostReq.ResourceName)
 	}
 
+	if ahf == nil {
+		return nil, fail.InconsistentError("host creation returned with an empty host and without reporting an error")
+	}
+
 	defer func() {
 		if xerr != nil && !hostReq.KeepOnFailure {
 			derr := svc.DeleteHost(ahf.Core.ID)

@@ -260,7 +260,7 @@ func isTunnelReady(port int) bool {
 }
 
 // buildTunnel create SSH from local host to remote host through gateway
-// if localPort is set to 0 then it's  automatically choosed
+// if localPort is set to 0 then it's  automatically chosen
 func buildTunnel(cfg *SSHConfig) (*SSHTunnel, fail.Error) {
 	f, err := CreateTempFileFromString(cfg.GatewayConfig.PrivateKey, 0400)
 	if err != nil {
@@ -275,7 +275,8 @@ func buildTunnel(cfg *SSHConfig) (*SSHTunnel, fail.Error) {
 	}
 
 	options := sshOptions + " -oServerAliveInterval=60"
-	cmdString := fmt.Sprintf("ssh -i %s -NL 127.0.0.1:%d:%s:%d %s@%s %s -p %d",
+	cmdString := fmt.Sprintf(
+		"ssh -i %s -C -NL 127.0.0.1:%d:%s:%d %s@%s %s -p %d",
 		f.Name(),
 		localPort,
 		cfg.Host,
@@ -285,6 +286,20 @@ func buildTunnel(cfg *SSHConfig) (*SSHTunnel, fail.Error) {
 		options,
 		cfg.GatewayConfig.Port,
 	)
+	if cfg.Host != "127.0.0.1" {
+		cmdString = fmt.Sprintf(
+			"ssh -i %s -C -NL %d:%s:%d %s@%s %s -p %d",
+			f.Name(),
+			localPort,
+			cfg.Host,
+			cfg.Port,
+			cfg.GatewayConfig.User,
+			cfg.GatewayConfig.Host,
+			options,
+			cfg.GatewayConfig.Port,
+		)
+	}
+
 	cmd := exec.Command("sh", "-c", cmdString)
 	cerr := cmd.Start()
 	//	err = cmd.Wait()
@@ -347,24 +362,21 @@ func (sc *SSHCommand) closeTunneling() fail.Error {
 // Wait also waits for the I/O loop copying from c.Stdin into the process's standard input to complete.
 // Wait releases any resources associated with the cmd.
 // Note: the error returned is not using fail.Error because we may need to cast the error to recover return code
-func (sc *SSHCommand) Wait() error {
-	err := sc.cmd.Wait()
-	nerr := sc.cleanup()
+
+func (sc *SSHCommand) Wait() (err error) {
+	defer func() {
+		nerr := sc.cleanup()
+		if nerr != nil {
+			logrus.Warnf("Error waiting for command cleanup: %v", nerr)
+			err = nerr
+		}
+	}()
+
+	err = sc.cmd.Wait()
 	if err != nil {
 		return err
 	}
-	if nerr != nil {
-		logrus.Warnf("Error waiting for command cleanup: %v", nerr)
-	}
-	return nerr
-}
 
-// Kill kills SSHCommand process and releases any resources associated with the SSHCommand.
-func (sc *SSHCommand) Kill() fail.Error {
-	err := sc.cmd.Process.Kill()
-	if err != nil {
-		return fail.ToError(err)
-	}
 	return nil
 }
 
@@ -404,30 +416,52 @@ func (sc *SSHCommand) StdinPipe() (io.WriteCloser, fail.Error) {
 // Output runs the command and returns its standard output.
 // Any returned error will usually be of type *ExitError.
 // If c.Stderr was nil, Output populates ExitError.Stderr.
-func (sc *SSHCommand) Output() ([]byte, fail.Error) {
+func (sc *SSHCommand) Output() (_ []byte, err error) {
+	if sc.cmd.Stdout != nil {
+		return []byte(""), nil
+	}
+
+	defer func() {
+		nerr := sc.cleanup()
+		if nerr != nil {
+			logrus.Warnf("Error waiting for command cleanup: %v", nerr)
+			err = nerr
+		}
+	}()
+
 	content, err := sc.cmd.Output()
-	nerr := sc.cleanup()
 	if err != nil {
-		return nil, fail.NewError(err.Error())
+		return nil, err
 	}
-	if nerr != nil {
-		logrus.Warnf("Error waiting for command cleanup: %v", nerr)
-	}
-	return content, nil
+
+	return content, err
 }
 
 // CombinedOutput runs the command and returns its combined standard
 // output and standard error.
-func (sc *SSHCommand) CombinedOutput() ([]byte, fail.Error) {
+func (sc *SSHCommand) CombinedOutput() (_ []byte, err error) {
+	if sc.cmd.Stdout != nil {
+		return []byte(""), nil
+	}
+
+	if sc.cmd.Stderr != nil {
+		return []byte(""), nil
+	}
+
+	defer func() {
+		nerr := sc.cleanup()
+		if nerr != nil {
+			logrus.Warnf("Error waiting for command cleanup: %v", nerr)
+			err = nerr
+		}
+	}()
+
 	content, err := sc.cmd.CombinedOutput()
-	nerr := sc.cleanup()
 	if err != nil {
-		return nil, fail.NewError(err.Error())
+		return nil, err
 	}
-	if nerr != nil {
-		logrus.Warnf("Error waiting for command cleanup: %v", nerr)
-	}
-	return content, nil
+
+	return content, err
 }
 
 // Start starts the specified command but does not wait for it to complete.
@@ -840,8 +874,35 @@ func (ssh *SSHConfig) WaitServerReady(task concurrency.Task, phase string, timeo
 				if retcode == 255 {
 					return fail.NewError("remote SSH not ready: error code: 255; Output [%s]; Error [%s]", stdout, stderr)
 				}
-				return fail.NewError("remote SSH NOT ready: error code: %d; Output [%s]; Error [%s]", retcode, stdout, stderr)
+				if retcode == 1 {
+					return fail.NewError("remote SSH not ready: error code: 255; Output [%s]; Error [%s]", stdout, stderr)
+				}
+
+				return fail.AbortedError(nil, fmt.Sprintf("remote SSH NOT ready: error code: %d; Output [%s]; Error [%s]", retcode, stdout, stderr))
 			}
+
+			if stdout != "" {
+				if !strings.HasPrefix(stdout, "0,") {
+					logrus.Warn(stdout)
+					if strings.Contains(stdout, ",") {
+						splitted := strings.Split(stdout, ",")
+						return fail.AbortedError(nil, fmt.Sprintf("PROVISIONING ERROR: %s", splitted[0]), nil)
+					}
+					return fail.AbortedError(nil, fmt.Sprintf("PROVISIONING ERROR: %s", "Unknown"), nil)
+				}
+			}
+
+			if stderr != "" {
+				if !strings.HasPrefix(stderr, "0,") {
+					logrus.Warn(stderr)
+					if strings.Contains(stderr, ",") {
+						splitted := strings.Split(stderr, ",")
+						return fail.AbortedError(nil, fmt.Sprintf("PROVISIONING ERROR: %s", splitted[0]), nil)
+					}
+					return fail.AbortedError(nil, fmt.Sprintf("PROVISIONING ERROR: %s", "Unknown"), nil)
+				}
+			}
+
 			return nil
 		},
 		timeout,

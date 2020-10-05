@@ -1140,7 +1140,7 @@ func (s *Stack) InspectHost(hostParam stacks.HostParameter) (ahf *abstract.HostF
 	for _, r := range awsHost.Reservations {
 		for _, i := range r.Instances {
 			ahf.Core.LastState, xerr = getAwsInstanceState(i.State)
-			if err != nil {
+			if xerr != nil {
 				return nil, xerr
 			}
 
