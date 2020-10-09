@@ -111,7 +111,7 @@ func (w ValidatedProvider) GetName() string {
 
 // NewValidatedProvider ...
 func NewValidatedProvider(innerProvider Provider, name string) *ValidatedProvider {
-	return &ValidatedProvider{InnerProvider: innerProvider, Label: name}
+	return &ValidatedProvider{InnerProvider: innerProvider, Name: name}
 }
 
 // ListAvailabilityZones ...

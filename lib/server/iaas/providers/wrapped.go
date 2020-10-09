@@ -19,5 +19,5 @@ package providers
 // WrappedProvider ...
 type WrappedProvider struct {
 	InnerProvider Provider
-	Label         string
+	Name          string
 }
