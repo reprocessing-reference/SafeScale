@@ -24,6 +24,7 @@ declare -x SF_SERIALIZED_FACTS=$(mktemp)
 declare -A FACTS
 export LINUX_KIND=
 export VERSION_ID=
+export FULL_VERSION_ID=
 
 sfFail() {
     if [ $# -eq 1 ]; then
@@ -68,6 +69,16 @@ sfApt() {
     DEBIAN_FRONTEND=noninteractive apt "$@"
 }
 export -f sfApt
+
+# try using dnf instead of yum if available
+sfYum() {
+    if [[ -n $(which dnf) ]]; then
+        dnf "$@"
+    else
+        yum "$@"
+    fi
+}
+export -f sfYum
 
 sfWaitLockfile() {
     local ROUNDS=600
@@ -137,8 +148,10 @@ sfCidr2network()
 {
     local base=${1%%/*}
     local bits=${1#*/}
-    local long=$(sfIP2long $base); shift
-    local mask=$((0xffffffff << (32-$bits))); shift
+    local long=$(sfIP2long $base)
+    shift
+    local mask=$((0xffffffff << (32 - $bits)))
+    shift
     sfLong2IP $((long & mask))
 }
 export -f sfCidr2network
@@ -148,8 +161,10 @@ sfCidr2broadcast()
 {
     local base=${1%%/*}
     local bits=${1#*/}
-    local long=$(sfIP2long $base); shift
-    local mask=$((0xffffffff << (32-$bits))); shift
+    local long=$(sfIP2long $base)
+    shift
+    local mask=$((0xffffffff << (32 - $bits)))
+    shift
     sfLong2IP $((long | ~mask))
 }
 export -f sfCidr2broadcast
@@ -198,7 +213,7 @@ export -f sfAsyncWait
 
 # sfRetry <timeout> <delay> command
 # retries command until success, with sleep of <delay> seconds
-sfRetry() {
+function sfRetry() {
     local timeout=$1
     local delay=$2
     shift 2
@@ -233,7 +248,7 @@ export -f sfRetry
 # but you may use sfFirewallAdd in this case)
 sfFirewall() {
 	[ $# -eq 0 ] && return 0
-	command -v firewall-cmd &>/dev/null || return 1
+    which firewall-cmd &>/dev/null || return 1
 	# Restart firewalld if failed
 	if [ "$(sfGetFact "use_systemd")" = "1" ]; then
 		if sudo systemctl is-failed firewalld; then
@@ -241,7 +256,7 @@ sfFirewall() {
 		fi
 	fi
 	# sudo may be superfluous if executed as root, but won't harm
-	sudo firewall-cmd "$@" || true
+    sudo firewall-cmd "$@"
 }
 export -f sfFirewall
 
@@ -254,7 +269,7 @@ export -f sfFirewallAdd
 
 # sfFirewallReload reloads firewall rules
 sfFirewallReload() {
-	command -v firewall-cmd &>/dev/null || return 1
+    which firewall-cmd &>/dev/null || return 1
 	# sudo may be superfluous if executed as root, but won't harm
 	sudo firewall-cmd --reload
 }
@@ -263,20 +278,24 @@ export -f sfFirewallReload
 # sfInstall installs a package and exits if it fails...
 sfInstall() {
 	case $LINUX_KIND in
-		debian|ubuntu)
-			export DEBIAN_FRONTEND=noninteractive
-			sfRetry 5m 3 "sfApt update"
-			sfApt install $1 -y || exit 194
-			command -v $1 || exit 194
-			;;
-		centos|rhel)
-			yum install -y $1 || exit 194
-			command -v $1 || exit 194
-			;;
-		*)
-			echo "Unsupported operating system '$LINUX_KIND'"
-			exit 195
-			;;
+    debian|ubuntu)
+        export DEBIAN_FRONTEND=noninteractive
+        sfRetry 5m 5 "sfApt update"
+        sfRetry 3m 5 "sfApt install $1 -y" || exit 194
+        which $1 || exit 194
+        ;;
+    centos | fedora | rhel | redhat)
+        if [[ -n $(which dnf) ]]; then
+            dnf install -y $1 || exit 194
+        else
+            yum install -y $1 || exit 194
+        fi
+        which $1 || exit 194
+        ;;
+    *)
+        echo "Unsupported operating system '$LINUX_KIND'"
+        exit 195
+        ;;
 	esac
 	return 0
 }
@@ -426,7 +445,7 @@ sfMarathon() {
 export -f sfMarathon
 
 sfProbeGPU() {
-	if command -v lspci &>/dev/null; then
+    if which lspci &>/dev/null; then
 		val=$(lspci | grep nvidia 2>/dev/null) || true
 		[ ! -z "$val" ] && FACTS["nVidia GPU"]=$val || true
 	fi
@@ -648,7 +667,7 @@ sfKeycloakDeleteGroup() {
 }
 export -f sfKeycloakDeleteGroup
 
-# sfService abstract the command to use to manipulate services
+# sfService abstracts the command to use to manipulate services
 sfService() {
     [ $# -ne 2 ] && return 1
 
@@ -658,39 +677,108 @@ sfService() {
     # Preventively run daemon-reload in case of changes
     [ "$use_systemd" = "1" ] && systemctl daemon-reload
 
+    if [ "$use_systemd" = "1" ]; then
     case $1 in
+        is-active)
+            systemctl is-active $2
+            return $?
+            ;;
+        is-enabled)
+            systemctl is-enabled $2
+            return $?
+            ;;
         enable)
-            [ "$use_systemd" = "1" ] && systemctl enable $2 && return $?
-            [ "$redhat_like" = "1" ] && chkconfig $2 on && return $?
+            systemctl enable $2
+            return $?
             ;;
         disable)
-            [ "$use_systemd" = "1" ] && systemctl disable $2 && return $?
-            [ "$redhat_like" = "1" ] && chkconfig $2 off && return $?
+            systemctl disable $2
+            return $?
             ;;
         start)
-            [ "$use_systemd" = "1" ] && systemctl start $2 && return $?
-            [ "$redhat_like" = "1" ] && service $2 start && return $?
+            systemctl start $2
+            return $?
             ;;
         stop)
-            [ "$use_systemd" = "1" ] && systemctl stop $2 && return $?
-            [ "$redhat_like" = "1" ] && service $2 stop && return $?
+            systemctl stop $2
+            return $?
             ;;
         restart)
-            [ "$use_systemd" = "1" ] && systemctl restart $2 && return $?
-            [ "$redhat_like" = "1" ] && service $2 restart && return $?
+            systemctl restart $2
+            return $?
             ;;
         reload)
-            [ "$use_systemd" = "1" ] && systemctl reload $2 && return $?
-            [ "$redhat_like" = "1" ] && service $2 reload && return $?
+            systemctl reload $2
+            return $?
             ;;
         status)
-            [ "$use_systemd" = "1" ] && systemctl status $2 && return $?
-            [ "$redhat_like" = "1" ] && service $2 status && return $?
+            systemctl status $2
+            return $?
+            ;;
+        *)
+            echo "sfService(): unhandled command '$1'"
+            ;;
+        esac
+    elif [ "$redhat_like" = "1" ]; then
+        case $1 in
+        enable)
+            chkconfig $2 on
+            return $?
+            ;;
+        disable)
+            chkconfig $2 off
+            return $?
+            ;;
+        start)
+            service $2 start
+            return $?
+            ;;
+        stop)
+            service $2 stop
+            return $?
+            ;;
+        restart)
+            service $2 restart
+            return $?
+            ;;
+        reload)
+            service $2 reload
+            return $?
+            ;;
+        status)
+            service $2 status
+            return $?
+            ;;
+        esac
+    else
+        case $1 in
+        start)
+            service $2 start
+            return $?
+            ;;
+        stop)
+            service $2 stop
+            return $?
+            ;;
+        restart)
+            service $2 restart
+            return $?
+            ;;
+        reload)
+            service $2 reload
+            return $?
+            ;;
+        status)
+            service $2 status
+            return $?
             ;;
         *)
             echo "sfService(): unhandled command '$1'"
             ;;
     esac
+    fi
+
+    echo "sfService(): unhandled command '$1'"
     return 1
 }
 export -f sfService
@@ -847,7 +935,7 @@ sfRandomString() {
     [ $# -ge 1 ] && count=$1
     local charset="[:graph:]"
     [ $# -ge 2 ] && charset="$2"
-    </dev/urandom tr -dc "$charset" | head -c${count} || true
+    tr </dev/urandom -dc "$charset" | head -c${count} || true
     return 0
 }
 export -f sfRandomString
@@ -866,42 +954,61 @@ sfDetectFacts() {
         . /etc/os-release
         FACTS["linux_kind"]=$ID
         LINUX_KIND=${ID,,}
-        FACTS["linux_version"]=$VERSION_ID
+        FACTS["version_id"]=$VERSION_ID
+        FACTS["distrib_version"]=$VERSION_ID
         VERSION_ID=$VERSION_ID
+        FULL_VERSION_ID=$VERSION_ID
         [ ! -z ${VERSION_CODENAME+x} ] && FACTS["linux_codename"]=${VERSION_CODENAME,,}
     else
         if which lsb_release &>/dev/null; then
             LINUX_KIND=$(lsb_release -is)
             LINUX_KIND=${LINUX_KIND,,}
             VERSION_ID=$(lsb_release -rs | cut -d. -f1)
+            FULL_VERSION_ID=$(lsb_release -rs)
         else
             [ -f /etc/redhat-release ] && {
                 LINUX_KIND=$(cat /etc/redhat-release | cut -d' ' -f1)
                 LINUX_KIND=${LINUX_KIND,,}
                 VERSION_ID=$(cat /etc/redhat-release | cut -d' ' -f3 | cut -d. -f1)
+                FULL_VERSION_ID=$(cat /etc/redhat-release | cut -d' ' -f3)
+                case $VERSION_ID in
+                '' | *[!0-9]*)
+                    VERSION_ID=$(cat /etc/redhat-release | cut -d' ' -f4 | cut -d. -f1)
+                    FULL_VERSION_ID=$(cat /etc/redhat-release | cut -d' ' -f4)
+                    ;;
+                *) ;;
+
+                esac
             }
         fi
         FACTS["linux_kind"]=${LINUX_KIND,,}
-        FACTS["linux_version"]=$VERSION_ID
+        FACTS["version_id"]=$VERSION_ID
+        FACTS["distrib_version"]=$VERSION_ID
     fi
 
     # Some facts about system
     case ${FACTS["linux_kind"]} in
-        redhat|centos)
+    redhat | rhel | centos | fedora)
             FACTS["redhat_like"]=1
             FACTS["debian_like"]=0
-			      FACTS["docker_version"]=$(yum info docker-ce || true)
             ;;
         debian|ubuntu)
             FACTS["redhat_like"]=0
             FACTS["debian_like"]=1
-            FACTS["docker_version"]=$(apt show docker-ce 2>/dev/null | grep "^Version" | cut -d: -f3 | cut -d~ -f1 || true)
             ;;
     esac
     if systemctl | grep '\-.mount' &>/dev/null; then
         FACTS["use_systemd"]=1
     else
         FACTS["use_systemd"]=0
+    fi
+
+    if sfService is-enabled NetworkManager &>/dev/null; then
+        FACTS["network_service"]="NetworkManager"
+    elif sfService is-enabled systemd-networkd &>/dev/null; then
+        FACTS["network_service"]="systemd-networkd"
+    else
+        FACTS["network_service"]="network"
     fi
 
     # Some facts about hardware
@@ -919,8 +1026,9 @@ sfDetectFacts() {
 
     sfProbeGPU
 
+    FACTS["docker_version"]=
     if which docker &>/dev/null; then
-        FACTS["docker_version"]=$(docker version {{ "--format '{{.Server.Version}}'" }} || true)
+        FACTS["docker_version"]=$(docker version {{ "--format '{{.Server.Version}}'" }} 2>/dev/null || true)
 
         # Some facts about installed features
         id=$(docker ps --filter "name=edgeproxy4network_proxy_1" {{ "--format '{{.ID}}'" }} 2>/dev/null || true)

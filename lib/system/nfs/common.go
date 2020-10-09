@@ -195,11 +195,11 @@ func executeScript(task concurrency.Task, sshconfig system.SSHConfig, name strin
 			if err != nil {
 				return fail.ExecutionError(err)
 			}
-			cmdResult, err := sshCmd.Output()
-			stdout = string(cmdResult)
-			if err != nil {
-				return fail.ExecutionError(err)
+			cmdResult, nerr := sshCmd.Output()
+			if nerr != nil {
+				return fail.ExecutionError(nerr)
 			}
+			stdout = string(cmdResult)
 			return nil
 		},
 		retry.PrevailDone(retry.UnsuccessfulWhereRetcode255(), retry.Timeout(temporal.GetContextTimeout())),

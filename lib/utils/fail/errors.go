@@ -55,13 +55,6 @@ type Error interface {
 	consequencer
 	error
 
-	// Cause() error     // returns the first immediate cause of an error
-	// RootCause() error // returns the root cause of an error
-
-	// // ConsequenceFormatter(func(Error) string)
-	// AddConsequence(err error) Error
-	// Consequences() []error
-
 	AnnotationFormatter(func(data.Annotations) string)
 
 	ForceSetCause(error) Error // set the cause of the error
@@ -120,7 +113,7 @@ func newError(cause error, consequences []error, msg ...interface{}) *errorCore 
 
 // IsNull tells if the instance is null
 func (e *errorCore) IsNull() bool {
-	return e == nil || (e.message == "" && e.cause == nil)
+	return e == nil || (e.message == "" && e.cause == nil && e.consequences == nil && (e.annotations == nil || len(e.annotations) == 0))
 }
 
 // defaultCauseFormatter generates a string containing information about the causing error and the derived errors while trying to clean up
@@ -540,6 +533,44 @@ func (e *ErrInvalidRequest) AddConsequence(err error) Error {
 func (e *ErrInvalidRequest) Annotate(key string, value data.Annotation) data.Annotatable {
 	if e.IsNull() {
 		logrus.Errorf(callstack.DecorateWith("invalid call:", "ErrInvalidRequest.Annotate()", "from null instance", 0))
+		return e
+	}
+	_ = e.errorCore.Annotate(key, value)
+	return e
+}
+
+// ErrNetworkIssue ...
+type ErrNetworkIssue struct {
+	*errorCore
+}
+
+// NetworkIssueError creates a ErrNetworkIssue error
+func NetworkIssueError(msg ...interface{}) Error {
+	r := newError(nil, nil, msg...)
+	r.grpcCode = codes.InvalidArgument
+	return &ErrNetworkIssue{r}
+}
+
+// IsNull tells if the instance is null
+func (e *ErrNetworkIssue) IsNull() bool {
+	return e == nil || e.errorCore.IsNull()
+}
+
+// AddConsequence ...
+func (e *ErrNetworkIssue) AddConsequence(err error) Error {
+	if e.IsNull() {
+		logrus.Errorf(callstack.DecorateWith("invalid call:", "ErrNetworkIssue.AddConsequence()", "from null instance", 0))
+		return e
+	}
+	_ = e.errorCore.AddConsequence(err)
+	return e
+}
+
+// Annotate overloads errorCore.Annotate() to make sure the type returned is the same as the caller
+// satisfies interface data.Annotatable
+func (e *ErrNetworkIssue) Annotate(key string, value data.Annotation) data.Annotatable {
+	if e.IsNull() {
+		logrus.Errorf(callstack.DecorateWith("invalid call:", "ErrNetworkIssue.Annotate()", "from null instance", 0))
 		return e
 	}
 	_ = e.errorCore.Annotate(key, value)

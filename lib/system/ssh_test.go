@@ -63,8 +63,8 @@ func Test_Command(t *testing.T) {
 		sshConf.GatewayConfig = &gateway
 		cmd, err := sshConf.Command(voidtask, "bash -c whoami")
 		assert.Nil(t, err)
-		out, err := cmd.Output()
-		assert.Nil(t, err)
+		out, nerr := cmd.Output()
+		assert.Nil(t, nerr)
 		assert.Equal(t, usr.Name, strings.Trim(string(out), "\n"))
 	}
 
@@ -73,8 +73,8 @@ func Test_Command(t *testing.T) {
 		sshConf.GatewayConfig.GatewayConfig = &gw
 		cmd, err := sshConf.Command(voidtask, "bash -c whoami")
 		assert.Nil(t, err)
-		out, err := cmd.Output()
-		assert.Nil(t, err)
+		out, nerr := cmd.Output()
+		assert.Nil(t, nerr)
 		assert.Equal(t, usr.Name, strings.Trim(string(out), "\n"))
 	}
 }
