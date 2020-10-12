@@ -25,6 +25,7 @@ import (
 	"github.com/CS-SI/SafeScale/lib/utils/fail"
 )
 
+//go:generate moq -out securitygroup_moq.go . SecurityGroup
 // SecurityGroup links Object Storage folder and SecurityGroup
 type SecurityGroup interface {
 	Metadata

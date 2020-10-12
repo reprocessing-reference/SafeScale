@@ -9,6 +9,7 @@ all: generate
 generate:
 	@(cd enums && $(MAKE) $(@))
 	@(cd operations && $(MAKE) $(@))
+	@$(GO) $(@)
 
 vet:
 	@$(GO) vet ./...
