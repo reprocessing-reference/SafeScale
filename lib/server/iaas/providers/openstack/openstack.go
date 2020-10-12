@@ -118,11 +118,6 @@ func (p *provider) Build(params map[string]interface{}) (providers.Provider, fai
 		tenantParameters: params,
 	}
 
-	//xerr = stack.InitDefaultSecurityGroups()
-	//if xerr != nil {
-	//	return nil, xerr
-	//}
-
 	validRegions, xerr := stack.ListRegions()
 	if xerr != nil {
 		return nil, xerr
