@@ -411,13 +411,9 @@ func specialSender() error {
 
 func TestRecognizeErrCore(t *testing.T) {
 	err := sender()
-	if err != nil {
-		if eb, ok := err.(causer); ok {
-			require.True(t, strings.Contains(err.Error(), "caused by"))
-			require.False(t, strings.Contains(eb.CauseError(), "caused by"))
-		} else {
-			t.Fail()
-		}
+	if eb, ok := err.(causer); ok {
+		require.True(t, strings.Contains(err.Error(), "caused by"))
+		require.False(t, strings.Contains(eb.CauseError(), "caused by"))
 	} else {
 		t.Fail()
 	}

@@ -31,127 +31,29 @@ import (
 // ValidatedProvider ...
 type ValidatedProvider WrappedProvider
 
-func (w ValidatedProvider) ListSecurityGroups() (_ []*abstract.SecurityGroup, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	return w.InnerProvider.ListSecurityGroups()
+func (w ValidatedProvider) CreateVIP(netID string, name string) (*abstract.VirtualIP, fail.Error) {
+	// FIXME: Add OK method to vip, then check return value
+	vip, err := w.InnerProvider.CreateVIP(netID, name)
+	return vip, err
 }
 
-func (w ValidatedProvider) CreateSecurityGroup(
-	name string, description string, rules []abstract.SecurityGroupRule,
-) (_ *abstract.SecurityGroup, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	return w.InnerProvider.CreateSecurityGroup(name, description, rules)
+func (w ValidatedProvider) AddPublicIPToVIP(vip *abstract.VirtualIP) fail.Error {
+	// FIXME: Add OK method to vip
+	return w.InnerProvider.AddPublicIPToVIP(vip)
 }
 
-func (w ValidatedProvider) InspectSecurityGroup(sgParam stacks.SecurityGroupParameter) (
-	_ *abstract.SecurityGroup, err fail.Error,
-) {
-	defer fail.OnPanic(&err)
-
-	return w.InnerProvider.InspectSecurityGroup(sgParam)
-}
-
-func (w ValidatedProvider) ClearSecurityGroup(sgParam stacks.SecurityGroupParameter) (
-	_ *abstract.SecurityGroup, err fail.Error,
-) {
-	defer fail.OnPanic(&err)
-
-	return w.InnerProvider.ClearSecurityGroup(sgParam)
-}
-
-func (w ValidatedProvider) DeleteSecurityGroup(sgParam stacks.SecurityGroupParameter) (err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	return w.InnerProvider.DeleteSecurityGroup(sgParam)
-}
-
-func (w ValidatedProvider) AddRuleToSecurityGroup(
-	sgParam stacks.SecurityGroupParameter, rule abstract.SecurityGroupRule,
-) (_ *abstract.SecurityGroup, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	return w.InnerProvider.AddRuleToSecurityGroup(sgParam, rule)
-}
-
-func (w ValidatedProvider) DeleteRuleFromSecurityGroup(
-	sgParam stacks.SecurityGroupParameter, ruleID string,
-) (_ *abstract.SecurityGroup, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	return w.InnerProvider.DeleteRuleFromSecurityGroup(sgParam, ruleID)
-}
-
-func (w ValidatedProvider) WaitHostReady(hostParam stacks.HostParameter, timeout time.Duration) (
-	_ *abstract.HostCore, err fail.Error,
-) {
-	defer fail.OnPanic(&err)
-
-	return w.InnerProvider.WaitHostReady(hostParam, timeout)
-}
-
-func (w ValidatedProvider) BindSecurityGroupToHost(
-	hostParam stacks.HostParameter, sgParam stacks.SecurityGroupParameter,
-) (err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	return w.InnerProvider.BindSecurityGroupToHost(hostParam, sgParam)
-}
-
-func (w ValidatedProvider) UnbindSecurityGroupFromHost(
-	hostParam stacks.HostParameter, sgParam stacks.SecurityGroupParameter,
-) (err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	return w.InnerProvider.UnbindSecurityGroupFromHost(hostParam, sgParam)
-}
-
-func (w ValidatedProvider) CreateVIP(first string, second string) (_ *abstract.VirtualIP, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	return w.InnerProvider.CreateVIP(first, second)
-}
-
-func (w ValidatedProvider) AddPublicIPToVIP(res *abstract.VirtualIP) (err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	return w.InnerProvider.AddPublicIPToVIP(res)
-}
-
-func (w ValidatedProvider) BindHostToVIP(vip *abstract.VirtualIP, hostID string) (err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if vip == nil {
-		return fail.InvalidParameterError("vip", "cannot be nil")
-	}
-	if hostID == "" {
-		return fail.InvalidParameterError("host", "cannot be empty string")
-	}
-
+func (w ValidatedProvider) BindHostToVIP(vip *abstract.VirtualIP, hostID string) fail.Error {
+	// FIXME: Add OK method to vip
 	return w.InnerProvider.BindHostToVIP(vip, hostID)
 }
 
-func (w ValidatedProvider) UnbindHostFromVIP(vip *abstract.VirtualIP, hostID string) (err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if vip == nil {
-		return fail.InvalidParameterError("vip", "cannot be nil")
-	}
-	if hostID == "" {
-		return fail.InvalidParameterError("host", "cannot be empty string")
-	}
-
+func (w ValidatedProvider) UnbindHostFromVIP(vip *abstract.VirtualIP, hostID string) fail.Error {
+	// FIXME:  Add OK method to vip
 	return w.InnerProvider.UnbindHostFromVIP(vip, hostID)
 }
 
-func (w ValidatedProvider) DeleteVIP(vip *abstract.VirtualIP) (err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if vip == nil {
-		return fail.InvalidParameterError("vip", "cannot be nil")
-	}
-
+func (w ValidatedProvider) DeleteVIP(vip *abstract.VirtualIP) fail.Error {
+	// FIXME: Add OK method to vip
 	return w.InnerProvider.DeleteVIP(vip)
 }
 
@@ -165,49 +67,39 @@ func (w ValidatedProvider) GetTenantParameters() map[string]interface{} {
 
 // Provider specific functions
 
-func (w ValidatedProvider) Build(something map[string]interface{}) (p Provider, err fail.Error) {
-	defer fail.OnPanic(&err)
-
+func (w ValidatedProvider) Build(something map[string]interface{}) (p Provider, xerr fail.Error) {
 	return w.InnerProvider.Build(something)
 }
 
-func (w ValidatedProvider) ListImages(all bool) (res []abstract.Image, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	res, err = w.InnerProvider.ListImages(all)
-	if err != nil {
+func (w ValidatedProvider) ListImages(all bool) (res []abstract.Image, xerr fail.Error) {
+	res, xerr = w.InnerProvider.ListImages(all)
+	if xerr != nil {
 		for _, image := range res {
 			if !image.OK() {
 				logrus.Warnf("Invalid image: %v", image)
 			}
 		}
 	}
-	return res, err
+	return res, xerr
 }
 
-func (w ValidatedProvider) ListTemplates(all bool) (res []abstract.HostTemplate, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	res, err = w.InnerProvider.ListTemplates(all)
-	if err != nil {
+func (w ValidatedProvider) ListTemplates(all bool) (res []abstract.HostTemplate, xerr fail.Error) {
+	res, xerr = w.InnerProvider.ListTemplates(all)
+	if xerr != nil {
 		for _, hostTemplate := range res {
 			if !hostTemplate.OK() {
 				logrus.Warnf("Invalid host template: %v", hostTemplate)
 			}
 		}
 	}
-	return res, err
+	return res, xerr
 }
 
-func (w ValidatedProvider) GetAuthenticationOptions() (_ Config, err fail.Error) {
-	defer fail.OnPanic(&err)
-
+func (w ValidatedProvider) GetAuthenticationOptions() (Config, fail.Error) {
 	return w.InnerProvider.GetAuthenticationOptions()
 }
 
-func (w ValidatedProvider) GetConfigurationOptions() (_ Config, err fail.Error) {
-	defer fail.OnPanic(&err)
-
+func (w ValidatedProvider) GetConfigurationOptions() (Config, fail.Error) {
 	return w.InnerProvider.GetConfigurationOptions()
 }
 
@@ -218,41 +110,24 @@ func (w ValidatedProvider) GetName() string {
 // Stack specific functions
 
 // NewValidatedProvider ...
-func NewValidatedProvider(InnerProvider Provider, name string) *ValidatedProvider {
-
-	// Feel the pain
-	w := &ValidatedProvider{InnerProvider: InnerProvider, Name: name}
-
-	// make sure there are no missing unimplemented methods
-	var _ Provider = w
-
-	return w
+func NewValidatedProvider(innerProvider Provider, name string) *ValidatedProvider {
+	return &ValidatedProvider{InnerProvider: innerProvider, Name: name}
 }
 
 // ListAvailabilityZones ...
-func (w ValidatedProvider) ListAvailabilityZones() (_ map[string]bool, err fail.Error) {
-	defer fail.OnPanic(&err)
-
+func (w ValidatedProvider) ListAvailabilityZones() (map[string]bool, fail.Error) {
 	return w.InnerProvider.ListAvailabilityZones()
 }
 
 // ListRegions ...
-func (w ValidatedProvider) ListRegions() (_ []string, err fail.Error) {
-	defer fail.OnPanic(&err)
-
+func (w ValidatedProvider) ListRegions() ([]string, fail.Error) {
 	return w.InnerProvider.ListRegions()
 }
 
-// InspectImage ...
-func (w ValidatedProvider) InspectImage(id string) (res *abstract.Image, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if id == "" {
-		return nil, fail.InvalidParameterError("id", "cannot be empty string")
-	}
-
-	res, err = w.InnerProvider.InspectImage(id)
-	if err != nil {
+// GetImage ...
+func (w ValidatedProvider) GetImage(id string) (res *abstract.Image, xerr fail.Error) {
+	res, xerr = w.InnerProvider.InspectImage(id)
+	if xerr != nil {
 		if res != nil {
 			if !res.OK() {
 				logrus.Warnf("Invalid image: %v", *res)
@@ -260,139 +135,97 @@ func (w ValidatedProvider) InspectImage(id string) (res *abstract.Image, err fai
 		}
 	}
 
-	return res, err
+	return res, xerr
 }
 
-// InspectTemplate ...
-func (w ValidatedProvider) InspectTemplate(id string) (res *abstract.HostTemplate, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if id == "" {
-		return nil, fail.InvalidParameterError("id", "cannot be empty string")
-	}
-
-	res, err = w.InnerProvider.InspectTemplate(id)
-	if err != nil {
+// GetTemplate ...
+func (w ValidatedProvider) GetTemplate(id string) (res *abstract.HostTemplate, xerr fail.Error) {
+	res, xerr = w.InnerProvider.InspectTemplate(id)
+	if xerr != nil {
 		if res != nil {
 			if !res.OK() {
 				logrus.Warnf("Invalid template: %v", *res)
 			}
 		}
 	}
-	return res, err
+	return res, xerr
 }
 
 // CreateKeyPair ...
-func (w ValidatedProvider) CreateKeyPair(name string) (kp *abstract.KeyPair, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if name == "" {
-		return nil, fail.InvalidParameterError("name", "cannot be empty string")
-	}
-
-	kp, err = w.InnerProvider.CreateKeyPair(name)
-	if err != nil {
+func (w ValidatedProvider) CreateKeyPair(name string) (kp *abstract.KeyPair, xerr fail.Error) {
+	kp, xerr = w.InnerProvider.CreateKeyPair(name)
+	if xerr != nil {
 		if kp == nil {
 			logrus.Warn("Invalid keypair !")
 		}
 	}
-	return kp, err
+	return kp, xerr
 }
 
-// InspectKeyPair ...
-func (w ValidatedProvider) InspectKeyPair(id string) (kp *abstract.KeyPair, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if id == "" {
-		return nil, fail.InvalidParameterError("id", "cannot be nil")
-	}
-
-	kp, err = w.InnerProvider.InspectKeyPair(id)
-	if err != nil {
+// GetKeyPair ...
+func (w ValidatedProvider) GetKeyPair(id string) (kp *abstract.KeyPair, xerr fail.Error) {
+	kp, xerr = w.InnerProvider.InspectKeyPair(id)
+	if xerr != nil {
 		if kp == nil {
 			logrus.Warn("Invalid keypair !")
 		}
 	}
-	return kp, err
+	return kp, xerr
 }
 
 // ListKeyPairs ...
-func (w ValidatedProvider) ListKeyPairs() (res []abstract.KeyPair, err fail.Error) {
-	defer fail.OnPanic(&err)
-
+func (w ValidatedProvider) ListKeyPairs() (res []abstract.KeyPair, xerr fail.Error) {
 	return w.InnerProvider.ListKeyPairs()
 }
 
 // DeleteKeyPair ...
-func (w ValidatedProvider) DeleteKeyPair(id string) (err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if id == "" {
-		return fail.InvalidParameterError("id", "cannot be empty string")
-	}
-
+func (w ValidatedProvider) DeleteKeyPair(id string) (xerr fail.Error) {
 	return w.InnerProvider.DeleteKeyPair(id)
 }
 
 // CreateNetwork ...
-func (w ValidatedProvider) CreateNetwork(req abstract.NetworkRequest) (res *abstract.Network, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	res, err = w.InnerProvider.CreateNetwork(req)
-	if err != nil {
+func (w ValidatedProvider) CreateNetwork(req abstract.NetworkRequest) (res *abstract.Network, xerr fail.Error) {
+	res, xerr = w.InnerProvider.CreateNetwork(req)
+	if xerr != nil {
 		if res != nil {
 			if !res.OK() {
 				logrus.Warnf("Invalid network: %v", *res)
 			}
 		}
 	}
-	return res, err
+	return res, xerr
 }
 
-// InspectNetwork ...
-func (w ValidatedProvider) InspectNetwork(id string) (res *abstract.Network, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if id == "" {
-		return nil, fail.InvalidParameterError("id", "cannot be empty string")
-	}
-
-	res, err = w.InnerProvider.InspectNetwork(id)
-	if err != nil {
+// GetNetwork ...
+func (w ValidatedProvider) GetNetwork(id string) (res *abstract.Network, xerr fail.Error) {
+	res, xerr = w.InnerProvider.InspectNetwork(id)
+	if xerr != nil {
 		if res != nil {
 			if !res.OK() {
 				logrus.Warnf("Invalid network: %v", *res)
 			}
 		}
 	}
-	return res, err
+	return res, xerr
 }
 
-// InspectNetworkByName ...
-func (w ValidatedProvider) InspectNetworkByName(name string) (res *abstract.Network, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if name == "" {
-		return nil, fail.InvalidParameterError("name", "cannot be empty string")
-	}
-
-	res, err = w.InnerProvider.InspectNetworkByName(name)
-	if err != nil {
+// GetNetworkByName ...
+func (w ValidatedProvider) GetNetworkByName(name string) (res *abstract.Network, xerr fail.Error) {
+	res, xerr = w.InnerProvider.InspectNetworkByName(name)
+	if xerr != nil {
 		if res != nil {
 			if !res.OK() {
 				logrus.Warnf("Invalid network: %v", *res)
 			}
 		}
 	}
-	return res, err
+	return res, xerr
 }
 
 // ListNetworks ...
-func (w ValidatedProvider) ListNetworks() (res []*abstract.Network, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	res, err = w.InnerProvider.ListNetworks()
-	if err != nil {
+func (w ValidatedProvider) ListNetworks() (res []*abstract.Network, xerr fail.Error) {
+	res, xerr = w.InnerProvider.ListNetworks()
+	if xerr != nil {
 		for _, item := range res {
 			if item != nil {
 				if !item.OK() {
@@ -401,87 +234,93 @@ func (w ValidatedProvider) ListNetworks() (res []*abstract.Network, err fail.Err
 			}
 		}
 	}
-	return res, err
+	return res, xerr
 }
 
 // DeleteNetwork ...
-func (w ValidatedProvider) DeleteNetwork(id string) (err fail.Error) {
-	defer fail.OnPanic(&err)
-
+func (w ValidatedProvider) DeleteNetwork(id string) (xerr fail.Error) {
 	return w.InnerProvider.DeleteNetwork(id)
 }
 
+// // CreateGateway ...
+// func (w ValidatedProvider) CreateGateway(req abstract.GatewayRequest) (res *abstract.HostFull, data *userdata.Content, xerr fail.Error) {
+// 	res, data, xerr = w.InnerProvider.CreateGateway(req)
+// 	if xerr != nil {
+// 		if res != nil {
+// 			if !res.OK() {
+// 				logrus.Warnf("Invalid host: %v", *res)
+// 			}
+// 		}
+// 		if data != nil {
+// 			if !data.OK() {
+// 				logrus.Warnf("Invalid userdata: %v", *data)
+// 			}
+// 		}
+// 	}
+// 	return res, data, xerr
+// }
+//
+// // DeleteGateway ...
+// func (w ValidatedProvider) DeleteGateway(networkID string) (xerr fail.Error) {
+// 	return w.InnerProvider.DeleteGateway(networkID)
+// }
+
 // CreateHost ...
-func (w ValidatedProvider) CreateHost(request abstract.HostRequest) (res *abstract.HostFull, data *userdata.Content, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if request.KeyPair == nil {
-		return nil, nil, fail.InvalidParameterError("request.KeyPair", "cannot be nil")
-	}
-
-	res, data, err = w.InnerProvider.CreateHost(request)
-	if err != nil {
+func (w ValidatedProvider) CreateHost(request abstract.HostRequest) (res *abstract.HostFull, ud *userdata.Content, xerr fail.Error) {
+	res, ud, xerr = w.InnerProvider.CreateHost(request)
+	if xerr != nil {
 		if res != nil {
 			if !res.OK() {
 				logrus.Warnf("Invalid host: %v", *res)
 			}
 		}
-		if data != nil {
-			if !data.OK() {
-				logrus.Warnf("Invalid userdata: %v", *data)
+		if ud != nil {
+			if !ud.OK() {
+				logrus.Warnf("Invalid userdata: %v", *ud)
 			}
 		}
 	}
-	return res, data, err
+	return res, ud, xerr
 }
 
 // InspectHost ...
-func (w ValidatedProvider) InspectHost(something stacks.HostParameter) (res *abstract.HostFull, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	res, err = w.InnerProvider.InspectHost(something)
-	if err != nil {
+func (w ValidatedProvider) InspectHost(hostParam stacks.HostParameter) (res *abstract.HostFull, xerr fail.Error) {
+	res, xerr = w.InnerProvider.InspectHost(hostParam)
+	if xerr != nil {
 		if res != nil {
 			if !res.OK() {
 				logrus.Warnf("Invalid host: %v", *res)
 			}
 		}
 	}
-	return res, err
+	return res, xerr
 }
 
-// InspectHostByName ...
-func (w ValidatedProvider) InspectHostByName(name string) (res *abstract.HostCore, err fail.Error) {
-	defer fail.OnPanic(&err)
+// WaitHostReady ...
+func (w ValidatedProvider) WaitHostReady(hostParam stacks.HostParameter, timeout time.Duration) (*abstract.HostCore, fail.Error) {
+	return w.InnerProvider.WaitHostReady(hostParam, timeout)
+}
 
-	if name == "" {
-		return nil, fail.InvalidParameterError("name", "cannot be empty string")
-	}
-
-	res, err = w.InnerProvider.InspectHostByName(name)
-	if err != nil {
+// GetHostByName ...
+func (w ValidatedProvider) GetHostByName(name string) (res *abstract.HostCore, xerr fail.Error) {
+	res, xerr = w.InnerProvider.InspectHostByName(name)
+	if xerr != nil {
 		if res != nil {
-			if !res.OK() {
-				logrus.Warnf("Invalid host: %v", *res)
-			}
+			logrus.Warnf("Invalid host: %v", *res)
 		}
 	}
-	return res, err
+	return res, xerr
 }
 
-// InspectHostState ...
-func (w ValidatedProvider) GetHostState(something stacks.HostParameter) (res hoststate.Enum, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	return w.InnerProvider.GetHostState(something)
+// GetHostState ...
+func (w ValidatedProvider) GetHostState(hostParam stacks.HostParameter) (res hoststate.Enum, xerr fail.Error) {
+	return w.InnerProvider.GetHostState(hostParam)
 }
 
 // ListHosts ...
-func (w ValidatedProvider) ListHosts(b bool) (res abstract.HostList, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	res, err = w.InnerProvider.ListHosts(b)
-	if err != nil {
+func (w ValidatedProvider) ListHosts(details bool) (res abstract.HostList, xerr fail.Error) {
+	res, xerr = w.InnerProvider.ListHosts(details)
+	if xerr != nil {
 		for _, item := range res {
 			if item != nil {
 				if !item.OK() {
@@ -490,204 +329,118 @@ func (w ValidatedProvider) ListHosts(b bool) (res abstract.HostList, err fail.Er
 			}
 		}
 	}
-	return res, err
+	return res, xerr
 }
 
 // DeleteHost ...
-func (w ValidatedProvider) DeleteHost(id stacks.HostParameter) (err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if id == "" {
-		return fail.InvalidParameterError("id", "cannot be empty string")
-	}
-
-	return w.InnerProvider.DeleteHost(id)
+func (w ValidatedProvider) DeleteHost(hostParam stacks.HostParameter) (xerr fail.Error) {
+	return w.InnerProvider.DeleteHost(hostParam)
 }
 
 // StopHost ...
-func (w ValidatedProvider) StopHost(id stacks.HostParameter) (err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if id == "" {
-		return fail.InvalidParameterError("id", "cannot be empty string")
-	}
-
-	return w.InnerProvider.StopHost(id)
+func (w ValidatedProvider) StopHost(hostParam stacks.HostParameter) (xerr fail.Error) {
+	return w.InnerProvider.StopHost(hostParam)
 }
 
 // StartHost ...
-func (w ValidatedProvider) StartHost(id stacks.HostParameter) (err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if id == "" {
-		return fail.InvalidParameterError("id", "cannot be empty string")
-	}
-
-	return w.InnerProvider.StartHost(id)
+func (w ValidatedProvider) StartHost(hostParam stacks.HostParameter) (xerr fail.Error) {
+	return w.InnerProvider.StartHost(hostParam)
 }
 
 // RebootHost ...
-func (w ValidatedProvider) RebootHost(id stacks.HostParameter) (err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if id == "" {
-		return fail.InvalidParameterError("id", "cannot be empty string")
-	}
-
-	return w.InnerProvider.RebootHost(id)
+func (w ValidatedProvider) RebootHost(hostParam stacks.HostParameter) (xerr fail.Error) {
+	return w.InnerProvider.RebootHost(hostParam)
 }
 
 // ResizeHost ...
-func (w ValidatedProvider) ResizeHost(id stacks.HostParameter, request abstract.HostSizingRequirements) (res *abstract.HostFull, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if id == "" {
-		return nil, fail.InvalidParameterError("id", "cannot be empty string")
-	}
-
-	res, err = w.InnerProvider.ResizeHost(id, request)
-	if err != nil {
+func (w ValidatedProvider) ResizeHost(hostParam stacks.HostParameter, request abstract.HostSizingRequirements) (res *abstract.HostFull, xerr fail.Error) {
+	res, xerr = w.InnerProvider.ResizeHost(hostParam, request)
+	if xerr != nil {
 		if res != nil {
 			if !res.OK() {
 				logrus.Warnf("Invalid host: %v", *res)
 			}
 		}
 	}
-	return res, err
+	return res, xerr
 }
 
 // CreateVolume ...
-func (w ValidatedProvider) CreateVolume(request abstract.VolumeRequest) (res *abstract.Volume, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if request.Name == "" {
-		return nil, fail.InvalidParameterError("request.Name", "cannot be empty string")
-	}
-
-	res, err = w.InnerProvider.CreateVolume(request)
-	if err != nil {
+func (w ValidatedProvider) CreateVolume(request abstract.VolumeRequest) (res *abstract.Volume, xerr fail.Error) {
+	res, xerr = w.InnerProvider.CreateVolume(request)
+	if xerr != nil {
 		if res != nil {
 			if !res.OK() {
 				logrus.Warnf("Invalid volume: %v", *res)
 			}
 		}
 	}
-	return res, err
+	return res, xerr
 }
 
-// InspectVolume ...
-func (w ValidatedProvider) InspectVolume(id string) (res *abstract.Volume, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if id == "" {
-		return nil, fail.InvalidParameterError("id", "cannot be empty string")
-	}
-
-	res, err = w.InnerProvider.InspectVolume(id)
-	if err != nil {
+// GetVolume ...
+func (w ValidatedProvider) GetVolume(id string) (res *abstract.Volume, xerr fail.Error) {
+	res, xerr = w.InnerProvider.InspectVolume(id)
+	if xerr != nil {
 		if res != nil {
 			if !res.OK() {
 				logrus.Warnf("Invalid volume: %v", *res)
 			}
 		}
 	}
-	return res, err
+	return res, xerr
 }
 
 // ListVolumes ...
-func (w ValidatedProvider) ListVolumes() (res []abstract.Volume, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	res, err = w.InnerProvider.ListVolumes()
-	if err != nil {
+func (w ValidatedProvider) ListVolumes() (res []abstract.Volume, xerr fail.Error) {
+	res, xerr = w.InnerProvider.ListVolumes()
+	if xerr != nil {
 		for _, item := range res {
 			if !item.OK() {
 				logrus.Warnf("Invalid host: %v", item)
 			}
 		}
 	}
-	return res, err
+	return res, xerr
 }
 
 // DeleteVolume ...
-func (w ValidatedProvider) DeleteVolume(id string) (err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if id == "" {
-		return fail.InvalidParameterError("id", "cannot be empty string")
-	}
-
+func (w ValidatedProvider) DeleteVolume(id string) (xerr fail.Error) {
 	return w.InnerProvider.DeleteVolume(id)
 }
 
 // CreateVolumeAttachment ...
-func (w ValidatedProvider) CreateVolumeAttachment(request abstract.VolumeAttachmentRequest) (parameter string, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if request.Name == "" {
-		return "", fail.InvalidParameterError("request.Name", "cannot be empty string")
-	}
-	if request.HostID == "" {
-		return "", fail.InvalidParameterError("HostID", "cannot be empty string")
-	}
-	if request.VolumeID == "" {
-		return "", fail.InvalidParameterError("VolumeID", "cannot be empty string")
-	}
-
+func (w ValidatedProvider) CreateVolumeAttachment(request abstract.VolumeAttachmentRequest) (id string, xerr fail.Error) {
 	return w.InnerProvider.CreateVolumeAttachment(request)
 }
 
-// InspectVolumeAttachment ...
-func (w ValidatedProvider) InspectVolumeAttachment(serverID, id string) (res *abstract.VolumeAttachment, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if serverID == "" {
-		return nil, fail.InvalidParameterError("serverID", "cannot be empty string")
-	}
-	if id == "" {
-		return nil, fail.InvalidParameterError("id", "cannot be empty string")
-	}
-
-	res, err = w.InnerProvider.InspectVolumeAttachment(serverID, id)
-	if err != nil {
+// GetVolumeAttachment ...
+func (w ValidatedProvider) GetVolumeAttachment(serverID, id string) (res *abstract.VolumeAttachment, xerr fail.Error) {
+	res, xerr = w.InnerProvider.InspectVolumeAttachment(serverID, id)
+	if xerr != nil {
 		if res != nil {
 			if !res.OK() {
 				logrus.Warnf("Invalid volume attachment: %v", *res)
 			}
 		}
 	}
-	return res, err
+	return res, xerr
 }
 
 // ListVolumeAttachments ...
-func (w ValidatedProvider) ListVolumeAttachments(serverID string) (res []abstract.VolumeAttachment, err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if serverID == "" {
-		return nil, fail.InvalidParameterError("serverID", "cannot be empty string")
-	}
-
-	res, err = w.InnerProvider.ListVolumeAttachments(serverID)
-	if err != nil {
+func (w ValidatedProvider) ListVolumeAttachments(serverID string) (res []abstract.VolumeAttachment, xerr fail.Error) {
+	res, xerr = w.InnerProvider.ListVolumeAttachments(serverID)
+	if xerr != nil {
 		for _, item := range res {
 			if !item.OK() {
 				logrus.Warnf("Invalid volume attachment: %v", item)
 			}
 		}
 	}
-	return res, err
+	return res, xerr
 }
 
 // DeleteVolumeAttachment ...
-func (w ValidatedProvider) DeleteVolumeAttachment(serverID, vaID string) (err fail.Error) {
-	defer fail.OnPanic(&err)
-
-	if serverID == "" {
-		return fail.InvalidParameterError("serverID", "cannot be empty string")
-	}
-	if vaID == "" {
-		return fail.InvalidParameterError("vaID", "cannot be empty string")
-	}
-
-	return w.InnerProvider.DeleteVolumeAttachment(serverID, vaID)
+func (w ValidatedProvider) DeleteVolumeAttachment(serverID, id string) (xerr fail.Error) {
+	return w.InnerProvider.DeleteVolumeAttachment(serverID, id)
 }

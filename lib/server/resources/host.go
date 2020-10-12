@@ -46,9 +46,9 @@ type Host interface {
 	GetAccessIP(task concurrency.Task) (string, fail.Error)                                                                                        // returns the IP to reach the host, with error handling
 	GetDefaultNetwork(task concurrency.Task) (Network, fail.Error)                                                                                 // returns the resources.Network object corresponding to the default network of the host, with error handling
 	GetMounts(task concurrency.Task) (*propertiesv1.HostMounts, fail.Error)                                                                        // returns the mounts on the host
-	GetPrivateIP(task concurrency.Task) (ip string, err fail.Error)                                                                                // returns the IP address of the host on the default local network, with error handling
-	GetPrivateIPOnNetwork(task concurrency.Task, networkID string) (ip string, err fail.Error)                                                     // returns the IP address of the host on the local network requested, with error handling
-	GetPublicIP(task concurrency.Task) (ip string, err fail.Error)                                                                                 // returns the public IP address of the host, with error handling
+	GetPrivateIP(task concurrency.Task) (ip string, xerr fail.Error)                                                                               // returns the IP address of the host on the default local network, with error handling
+	GetPrivateIPOnNetwork(task concurrency.Task, networkID string) (ip string, xerr fail.Error)                                                    // returns the IP address of the host on the local network requested, with error handling
+	GetPublicIP(task concurrency.Task) (ip string, xerr fail.Error)                                                                                // returns the public IP address of the host, with error handling
 	GetShare(task concurrency.Task, shareRef string) (*propertiesv1.HostShare, fail.Error)                                                         // returns a clone of the propertiesv1.HostShare corresponding to share 'shareRef'
 	GetShares(task concurrency.Task) (*propertiesv1.HostShares, fail.Error)                                                                        // returns the shares hosted on the host
 	GetSSHConfig(task concurrency.Task) (*system.SSHConfig, fail.Error)                                                                            // loads SSH configuration for host from metadata
@@ -66,5 +66,5 @@ type Host interface {
 	Stop(task concurrency.Task) fail.Error                                                                                                         // stops the host
 	ToProtocol(task concurrency.Task) (*protocol.Host, fail.Error)                                                                                 // converts a host to equivalent gRPC message
 	UnbindSecurityGroup(task concurrency.Task, sg SecurityGroup) fail.Error                                                                        // Unbinds a security group from host
-	WaitSSHReady(task concurrency.Task, timeout time.Duration) (status string, err fail.Error)                                                     // Wait for remote SSH to respond
+	WaitSSHReady(task concurrency.Task, timeout time.Duration) (status string, xerr fail.Error)                                                    // Wait for remote SSH to respond
 }

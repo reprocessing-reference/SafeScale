@@ -77,12 +77,11 @@ func (s *Stack) CreateVIP(subnetID string, name string) (_ *abstract.VirtualIP, 
 	}
 	// primary := deviceNumber == 0
 	return &abstract.VirtualIP{
-		ID:         nic.NicId,
-		PrivateIP:  nic.PrivateIps[0].PrivateIp,
-		NetworkID:  netID,
-		Hosts:      nil,
-		PublicIP:   "",
-		PublicIPID: "",
+		ID:        nic.NicId,
+		PrivateIP: nic.PrivateIps[0].PrivateIp,
+		NetworkID: netID,
+		Hosts:     nil,
+		PublicIP:  "",
 	}, nil
 }
 

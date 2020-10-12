@@ -203,7 +203,7 @@ func UseService(tenantName string) (newService Service, xerr fail.Error) {
 			}
 			found, err = metadataLocation.FindBucket(bucketName)
 			if err != nil {
-				return NullService(), fail.Wrap(err, fmt.Sprintf("error accessing metadata location: %s", bucketName))
+				return NullService(), fail.Wrap(err, "error accessing metadata location: %s")
 			}
 			if found {
 				metadataBucket, err = metadataLocation.InspectBucket(bucketName)

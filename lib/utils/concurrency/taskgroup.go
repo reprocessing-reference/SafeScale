@@ -75,26 +75,26 @@ func NewTaskGroupWithContext(ctx context.Context, parentTask Task) (*taskGroup, 
 	return newTaskGroup(ctx, parentTask)
 }
 
-func newTaskGroup(ctx context.Context, parentTask Task) (tg *taskGroup, err fail.Error) {
+func newTaskGroup(ctx context.Context, parentTask Task) (tg *taskGroup, xerr fail.Error) {
 	var t Task
 
 	if parentTask == nil {
 		if ctx == nil {
-			t, err = NewTask()
+			t, xerr = NewTask()
 		} else {
-			t, err = NewTaskWithContext(ctx, nil)
+			t, xerr = NewTaskWithContext(ctx, nil)
 		}
 	} else {
 		switch parentTask := parentTask.(type) {
 		case *task:
 			p := parentTask
-			t, err = NewTaskWithParent(p)
+			t, xerr = NewTaskWithParent(p)
 		case *taskGroup:
 			p := parentTask
-			t, err = NewTaskWithParent(p.task)
+			t, xerr = NewTaskWithParent(p.task)
 		}
 	}
-	return &taskGroup{task: t.(*task)}, err
+	return &taskGroup{task: t.(*task)}, xerr
 }
 
 // IsNull ...

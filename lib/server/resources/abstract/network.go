@@ -153,13 +153,12 @@ func (n *Network) GetID() string {
 
 // VirtualIP is a structure containing information needed to manage VIP (virtual IP)
 type VirtualIP struct {
-	ID         string      `json:"id,omitempty"`
-	Name       string      `json:"name,omitempty"`
-	NetworkID  string      `json:"network_id,omitempty"`
-	PrivateIP  string      `json:"private_ip,omitempty"`
-	PublicIP   string      `json:"public_ip,omitempty"`
-	PublicIPID string      `json:"public_ip_id,omitempty"`
-	Hosts      []*HostCore `json:"hosts,omitempty"`
+	ID        string      `json:"id,omitempty"`
+	Name      string      `json:"name,omitempty"`
+	NetworkID string      `json:"network_id,omitempty"`
+	PrivateIP string      `json:"private_ip,omitempty"`
+	PublicIP  string      `json:"public_ip,omitempty"`
+	Hosts     []*HostCore `json:"hosts,omitempty"`
 }
 
 func NewVirtualIP() *VirtualIP {

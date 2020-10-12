@@ -22,16 +22,12 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
 	txttmpl "text/template"
 
-	"github.com/asaskevich/govalidator"
-
-	"github.com/CS-SI/SafeScale/lib/utils/temporal"
 	rice "github.com/GeertJohan/go.rice"
 	"github.com/sirupsen/logrus"
 
@@ -46,71 +42,64 @@ import (
 // Content is the structure to apply to userdata.sh template
 type Content struct {
 	// BashLibrary contains the bash library
-	BashLibrary string `valid:"notnull"`
+	BashLibrary string
 	// Header is the bash header for scripts
-	Header string `valid:"-"`
+	Header string
 	// Revision is the git revision used to build SafeScale
-	Revision string `valid:"-"`
+	Revision string
 	// User is the name of the default user (api.DefaultUser)
-	User string `valid:"-"`
+	User string
 	// ExitOnError helper to quit script on error
-	ExitOnError string `valid:"-"`
+	ExitOnError string
 	// Password for the user safescale (for troubleshoot use, usable only in console)
-	Password string `valid:"-"`
+	Password string
 	// PublicKey is the public key used to create the Host
-	PublicKey string `valid:"-"`
+	PublicKey string
 	// PrivateKey is the private key used to create the Host
-	PrivateKey string `valid:"-"`
+	PrivateKey string
 	// ConfIF, if set to true, configure all interfaces to DHCP
-	ConfIF bool `valid:"-"`
+	ConfIF bool
 	// IsGateway, if set to true, activate IP forwarding
-	IsGateway bool `valid:"-"`
-	// PublicIP contains a public IP bound to the host
-	PublicIP string `valid:"-"`
+	IsGateway bool
+	// getPublicIP contains a public IP binded to the host
+	PublicIP string
 	// AddGateway, if set to true, configure default gateway
-	AddGateway bool `valid:"-"`
+	AddGateway bool
 	// DNSServers contains the list of DNS servers to use
 	// Used only if IsGateway is true
-	DNSServers []string `valid:"-"`
+	DNSServers []string
 	// CIDR contains the cidr of the network
-	CIDR string `valid:"-"`
+	CIDR string
 	// DefaultRouteIP is the IP of the gateway or the VIP if gateway HA is enabled
-	DefaultRouteIP string `valid:"-"`
+	DefaultRouteIP string
 	// EndpointIP is the IP of the gateway or the VIP if gateway HA is enabled
-	EndpointIP string `valid:"-"`
+	EndpointIP string
 	// PrimaryGatewayPrivateIP is the private IP of the primary gateway
-	PrimaryGatewayPrivateIP string `valid:"-"`
+	PrimaryGatewayPrivateIP string
 	// PrimaryGatewayPublicIP is the public IP of the primary gateway
-	PrimaryGatewayPublicIP string `valid:"-"`
+	PrimaryGatewayPublicIP string
 	// SecondaryGatewayPrivateIP is the private IP of the secondary gateway
-	SecondaryGatewayPrivateIP string `valid:"-"`
+	SecondaryGatewayPrivateIP string
 	// SecondaryGatewayPublicIP is the public IP of the secondary gateway
-	SecondaryGatewayPublicIP string `valid:"-"`
+	SecondaryGatewayPublicIP string
 	// EmulatedPublicNet is a private network which is used to emulate a public one
-	EmulatedPublicNet string `valid:"-"`
+	EmulatedPublicNet string
 	// HostName contains the name wanted as host name (default == name of the Cloud resource)
-	HostName string `valid:"notnull"`
+	HostName string
 	// Tags contains tags and their content(s); a tag is named #<tag> in the template
-	Tags map[Phase]map[string][]string `valid:"-"`
+	Tags map[Phase]map[string][]string
 	// IsPrimaryGateway tells if the host is a primary gateway
-	IsPrimaryGateway bool `valid:"-"`
-	// UsesVIP tells if VIP feature is activated
-	UsesVIP bool `valid:"-"`
-	// PrivateVIP contains the private IP of the VIP instance if it exists
-	PublicVIP string `valid:"ipv4,required"` // VPL: change to EndpointIP
-	// PrivateVIP contains the private IP of the VIP instance if it exists
-	PrivateVIP                  string `valid:"ipv4,required"` // VPL: change to DefaultRouteIP
-	GatewayHAKeepalivedPassword string `valid:"-"`
+	IsPrimaryGateway bool
+	// // PrivateVIP contains the private IP of the VIP instance if it exists
+	// PublicVIP string // VPL: change to getEndpointIP
+	// // PrivateVIP contains the private IP of the VIP instance if it exists
+	// PrivateVIP string // VPL: change to defaultRouteIP
+	// GatewayHAKeepalivedPassword contains the password to use in keepalived configurations
+	GatewayHAKeepalivedPassword string
 
-	ProviderName     string `valid:"-"`
-	BuildSubnetworks bool   `valid:"-"`
+	ProviderName     string
+	BuildSubnetworks bool
 	// Dashboard bool // Add kubernetes dashboard
-
-	// Template parameters
-	TemplateOperationTimeout     string `valid:"-"`
-	TemplateLongOperationTimeout string `valid:"-"`
-	TemplatePullImagesTimeout    string `valid:"-"`
-	TemplateOperationDelay       uint   `valid:"-"`
 }
 
 var (
@@ -131,19 +120,11 @@ func NewContent() *Content {
 	}
 }
 
-func (ud Content) OK() bool {
+// OK ...
+func (ud Content) OK() bool { // FIXME: Complete function, mark struct fields as optional, then validate
 	result := true
 	result = result && ud.BashLibrary != ""
 	result = result && ud.HostName != ""
-
-	if ud.UsesVIP {
-		valid, err := govalidator.ValidateStruct(ud)
-		if err != nil {
-			valid = false
-		}
-		result = result && valid
-	}
-
 	return result
 }
 
@@ -217,19 +198,11 @@ func (ud *Content) Prepare(options stacks.ConfigurationOptions, request abstract
 	ud.EmulatedPublicNet = defaultNetworkCIDR
 	ud.ProviderName = options.ProviderName
 	ud.BuildSubnetworks = options.BuildSubnetworks
-	ud.TemplateOperationDelay = uint(math.Ceil(2 * temporal.GetDefaultDelay().Seconds()))
-	ud.TemplateOperationTimeout = (temporal.GetHostTimeout() / 2).String()
-	ud.TemplateLongOperationTimeout = temporal.GetHostTimeout().String()
-	ud.TemplatePullImagesTimeout = (2 * temporal.GetHostTimeout()).String()
 
 	if request.HostName != "" {
 		ud.HostName = request.HostName
 	} else {
 		ud.HostName = request.ResourceName
-	}
-
-	if !ud.OK() {
-		logrus.Warn("Invalid userdata")
 	}
 
 	return nil
