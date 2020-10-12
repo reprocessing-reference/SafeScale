@@ -32,6 +32,88 @@ import (
 // ErrorTraceProvider ...
 type ErrorTraceProvider WrappedProvider
 
+func (w ErrorTraceProvider) InspectImage(id string) (*abstract.Image, fail.Error) {
+	return w.InnerProvider.InspectImage(id)
+}
+
+func (w ErrorTraceProvider) InspectTemplate(id string) (*abstract.HostTemplate, fail.Error) {
+	return w.InnerProvider.InspectTemplate(id)
+}
+
+func (w ErrorTraceProvider) InspectKeyPair(id string) (*abstract.KeyPair, fail.Error) {
+	return w.InnerProvider.InspectKeyPair(id)
+}
+
+func (w ErrorTraceProvider) ListSecurityGroups() ([]*abstract.SecurityGroup, fail.Error) {
+	return w.InnerProvider.ListSecurityGroups()
+}
+
+func (w ErrorTraceProvider) CreateSecurityGroup(
+	name string, description string, rules []abstract.SecurityGroupRule,
+) (*abstract.SecurityGroup, fail.Error) {
+	return w.InnerProvider.CreateSecurityGroup(name, description, rules)
+}
+
+func (w ErrorTraceProvider) InspectSecurityGroup(sgParam stacks.SecurityGroupParameter) (
+	*abstract.SecurityGroup, fail.Error,
+) {
+	return w.InnerProvider.InspectSecurityGroup(sgParam)
+}
+
+func (w ErrorTraceProvider) ClearSecurityGroup(sgParam stacks.SecurityGroupParameter) (
+	*abstract.SecurityGroup, fail.Error,
+) {
+	return w.InnerProvider.ClearSecurityGroup(sgParam)
+}
+
+func (w ErrorTraceProvider) DeleteSecurityGroup(sgParam stacks.SecurityGroupParameter) fail.Error {
+	return w.InnerProvider.DeleteSecurityGroup(sgParam)
+}
+
+func (w ErrorTraceProvider) AddRuleToSecurityGroup(
+	sgParam stacks.SecurityGroupParameter, rule abstract.SecurityGroupRule,
+) (*abstract.SecurityGroup, fail.Error) {
+	return w.InnerProvider.AddRuleToSecurityGroup(sgParam, rule)
+}
+
+func (w ErrorTraceProvider) DeleteRuleFromSecurityGroup(
+	sgParam stacks.SecurityGroupParameter, ruleID string,
+) (*abstract.SecurityGroup, fail.Error) {
+	return w.InnerProvider.DeleteRuleFromSecurityGroup(sgParam, ruleID)
+}
+
+func (w ErrorTraceProvider) InspectNetwork(id string) (*abstract.Network, fail.Error) {
+	return w.InnerProvider.InspectNetwork(id)
+}
+
+func (w ErrorTraceProvider) InspectNetworkByName(name string) (*abstract.Network, fail.Error) {
+	return w.InnerProvider.InspectNetworkByName(name)
+}
+
+func (w ErrorTraceProvider) InspectHostByName(s string) (*abstract.HostCore, fail.Error) {
+	return w.InnerProvider.InspectHostByName(s)
+}
+
+func (w ErrorTraceProvider) BindSecurityGroupToHost(
+	hostParam stacks.HostParameter, sgParam stacks.SecurityGroupParameter,
+) fail.Error {
+	return w.InnerProvider.BindSecurityGroupToHost(hostParam, sgParam)
+}
+
+func (w ErrorTraceProvider) UnbindSecurityGroupFromHost(
+	hostParam stacks.HostParameter, sgParam stacks.SecurityGroupParameter,
+) fail.Error {
+	return w.InnerProvider.UnbindSecurityGroupFromHost(hostParam, sgParam)
+}
+
+func (w ErrorTraceProvider) InspectVolume(id string) (*abstract.Volume, fail.Error) {
+	return w.InnerProvider.InspectVolume(id)
+}
+
+func (w ErrorTraceProvider) InspectVolumeAttachment(serverID, id string) (*abstract.VolumeAttachment, fail.Error) {
+	return w.InnerProvider.InspectVolumeAttachment(serverID, id)
+}
+
 // WaitHostReady ...
 func (w ErrorTraceProvider) WaitHostReady(hostParam stacks.HostParameter, timeout time.Duration) (_ *abstract.HostCore, xerr fail.Error) {
 	defer func(prefix string) {
@@ -109,7 +191,11 @@ func (w ErrorTraceProvider) GetTenantParameters() map[string]interface{} {
 
 // NewErrorTraceProvider ...
 func NewErrorTraceProvider(innerProvider Provider, name string) ErrorTraceProvider {
-	return ErrorTraceProvider{InnerProvider: innerProvider, Name: name}
+	etp := ErrorTraceProvider{InnerProvider: innerProvider, Name: name}
+
+	var _ Provider = etp
+
+	return etp
 }
 
 // ListAvailabilityZones ...

@@ -31,6 +31,88 @@ import (
 // ValidatedProvider ...
 type ValidatedProvider WrappedProvider
 
+func (w ValidatedProvider) InspectImage(id string) (*abstract.Image, fail.Error) {
+	return w.InnerProvider.InspectImage(id)
+}
+
+func (w ValidatedProvider) InspectTemplate(id string) (*abstract.HostTemplate, fail.Error) {
+	return w.InnerProvider.InspectTemplate(id)
+}
+
+func (w ValidatedProvider) InspectKeyPair(id string) (*abstract.KeyPair, fail.Error) {
+	return w.InnerProvider.InspectKeyPair(id)
+}
+
+func (w ValidatedProvider) ListSecurityGroups() ([]*abstract.SecurityGroup, fail.Error) {
+	return w.InnerProvider.ListSecurityGroups()
+}
+
+func (w ValidatedProvider) CreateSecurityGroup(
+	name string, description string, rules []abstract.SecurityGroupRule,
+) (*abstract.SecurityGroup, fail.Error) {
+	return w.InnerProvider.CreateSecurityGroup(name, description, rules)
+}
+
+func (w ValidatedProvider) InspectSecurityGroup(sgParam stacks.SecurityGroupParameter) (
+	*abstract.SecurityGroup, fail.Error,
+) {
+	return w.InnerProvider.InspectSecurityGroup(sgParam)
+}
+
+func (w ValidatedProvider) ClearSecurityGroup(sgParam stacks.SecurityGroupParameter) (
+	*abstract.SecurityGroup, fail.Error,
+) {
+	return w.InnerProvider.ClearSecurityGroup(sgParam)
+}
+
+func (w ValidatedProvider) DeleteSecurityGroup(sgParam stacks.SecurityGroupParameter) fail.Error {
+	return w.InnerProvider.DeleteSecurityGroup(sgParam)
+}
+
+func (w ValidatedProvider) AddRuleToSecurityGroup(
+	sgParam stacks.SecurityGroupParameter, rule abstract.SecurityGroupRule,
+) (*abstract.SecurityGroup, fail.Error) {
+	return w.InnerProvider.AddRuleToSecurityGroup(sgParam, rule)
+}
+
+func (w ValidatedProvider) DeleteRuleFromSecurityGroup(
+	sgParam stacks.SecurityGroupParameter, ruleID string,
+) (*abstract.SecurityGroup, fail.Error) {
+	return w.InnerProvider.DeleteRuleFromSecurityGroup(sgParam, ruleID)
+}
+
+func (w ValidatedProvider) InspectNetwork(id string) (*abstract.Network, fail.Error) {
+	return w.InnerProvider.InspectNetwork(id)
+}
+
+func (w ValidatedProvider) InspectNetworkByName(name string) (*abstract.Network, fail.Error) {
+	return w.InnerProvider.InspectNetworkByName(name)
+}
+
+func (w ValidatedProvider) InspectHostByName(s string) (*abstract.HostCore, fail.Error) {
+	return w.InnerProvider.InspectHostByName(s)
+}
+
+func (w ValidatedProvider) BindSecurityGroupToHost(
+	hostParam stacks.HostParameter, sgParam stacks.SecurityGroupParameter,
+) fail.Error {
+	return w.InnerProvider.BindSecurityGroupToHost(hostParam, sgParam)
+}
+
+func (w ValidatedProvider) UnbindSecurityGroupFromHost(
+	hostParam stacks.HostParameter, sgParam stacks.SecurityGroupParameter,
+) fail.Error {
+	return w.InnerProvider.UnbindSecurityGroupFromHost(hostParam, sgParam)
+}
+
+func (w ValidatedProvider) InspectVolume(id string) (*abstract.Volume, fail.Error) {
+	return w.InnerProvider.InspectVolume(id)
+}
+
+func (w ValidatedProvider) InspectVolumeAttachment(serverID, id string) (*abstract.VolumeAttachment, fail.Error) {
+	return w.InnerProvider.InspectVolumeAttachment(serverID, id)
+}
+
 func (w ValidatedProvider) CreateVIP(netID string, name string) (*abstract.VirtualIP, fail.Error) {
 	// FIXME: Add OK method to vip, then check return value
 	vip, err := w.InnerProvider.CreateVIP(netID, name)
@@ -111,7 +193,11 @@ func (w ValidatedProvider) GetName() string {
 
 // NewValidatedProvider ...
 func NewValidatedProvider(innerProvider Provider, name string) *ValidatedProvider {
-	return &ValidatedProvider{InnerProvider: innerProvider, Name: name}
+	vap := ValidatedProvider{InnerProvider: innerProvider, Name: name}
+
+	var _ Provider = vap
+
+	return &vap
 }
 
 // ListAvailabilityZones ...
