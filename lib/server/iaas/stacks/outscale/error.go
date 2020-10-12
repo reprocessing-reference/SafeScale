@@ -25,6 +25,45 @@ import (
 	"github.com/CS-SI/SafeScale/lib/utils/fail"
 )
 
+func normalizeErrorWithReason(reason string, err error) fail.Error {
+	if err == nil {
+		return nil
+	}
+
+	switch realErr := err.(type) {
+	case osc.GenericOpenAPIError:
+		switch model := realErr.Model().(type) {
+		case osc.ErrorResponse:
+			switch model.Errors[0].Code {
+			case "1":
+				return fail.NotAuthenticatedError("user is not authenticated")
+			case "4019":
+				return fail.InvalidRequestError("invalid device name")
+			case "4045":
+				return fail.InvalidRequestError("invalid CIDR")
+			case "5057":
+				return fail.NotFoundError("network not found")
+			case "5071":
+				return fail.NotFoundError("keypair not found")
+			case "9011":
+				return fail.DuplicateError("a keypair with this name already exists")
+			case "9044":
+				return fail.InvalidRequestError("not included in VPC CIDR")
+			case "9058":
+				return fail.DuplicateError("network already exist")
+			default:
+				merr := model.Errors[0]
+				reqId := model.ResponseContext.RequestId
+				return fail.UnknownError("%s: from outscale driver, code='%s', type='%s', details='%s', requestId='%s'", reason, merr.Code, merr.Type, merr.Details, reqId)
+			}
+		default:
+			return fail.UnknownError("%s: from outscale driver, model='%s', error='%s'", reason, reflect.TypeOf(realErr), realErr.Error())
+		}
+	default:
+		return fail.ToError(err)
+	}
+}
+
 func normalizeError(err error) fail.Error {
 	if err == nil {
 		return nil

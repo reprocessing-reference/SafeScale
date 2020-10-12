@@ -28,10 +28,12 @@ import (
 	"github.com/CS-SI/SafeScale/lib/utils/fail"
 )
 
-// provider is integration of outscale IaaS API
+// OutscaleProvider safescale integration of outscale IaaS API
 // see https://docs.outscale.com/api
 type provider struct {
 	outscale.Stack
+
+	tenantParameters map[string]interface{}
 }
 
 func remap(s interface{}) map[string]interface{} {
@@ -76,7 +78,7 @@ func volumeSpeed(s string) volumespeed.Enum {
 	if s == "COLD" {
 		return volumespeed.COLD
 	}
-	if s == "COLD" {
+	if s == "SSD" {
 		return volumespeed.SSD
 	}
 	return volumespeed.HDD
@@ -109,6 +111,8 @@ func (p *provider) Build(opt map[string]interface{}) (_ providers.Provider, xerr
 			return nil, xerr
 		}
 	}
+
+	providerName := "outscale"
 
 	options := &outscale.ConfigurationOptions{
 		Identity: outscale.Credentials{
@@ -156,7 +160,13 @@ func (p *provider) Build(opt map[string]interface{}) (_ providers.Provider, xerr
 		return nil, fail.ToError(err)
 	}
 	p.Stack = *stack
-	return p, nil
+	p.tenantParameters = opt
+
+	evalid := providers.NewValidatedProvider(p, providerName)
+	etrace := providers.NewErrorTraceProvider(evalid, providerName)
+	prov := providers.NewLoggedProvider(etrace, providerName)
+
+	return prov, nil
 }
 
 // GetAuthenticationOptions returns authentication parameters
@@ -200,23 +210,19 @@ func (p *provider) GetName() string {
 }
 
 // GetTenantParameters returns the tenant parameters as-is
-// TODO:
 func (p *provider) GetTenantParameters() map[string]interface{} {
-	return nil
+	return p.tenantParameters
 }
 
 // GetCapabilities returns the capabilities of the provider
 func (p *provider) GetCapabilities() providers.Capabilities {
 	return providers.Capabilities{
-		PublicVirtualIP: false,
-		// TODO: not tested, corresponding code inside stack is commented
-		// PrivateVirtualIP: true,
+		PublicVirtualIP:  false,
 		PrivateVirtualIP: false,
 		Layer3Networking: false,
 	}
 }
 
-// TODO: init when finished
 func init() {
 	iaas.Register("outscale", &provider{})
 }
