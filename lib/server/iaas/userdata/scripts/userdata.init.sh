@@ -68,7 +68,26 @@ VERSION_ID=
 FULL_VERSION_ID=
 FULL_HOSTNAME=
 
-sfDetectFacts() {
+function sfAvail() {
+    rc=-1
+    case $LINUX_KIND in
+    redhat | rhel | centos | fedora)
+        if [[ -n $(which dnf) ]]; then
+            dnf list available "$@" &>/dev/null && rc=$?
+        else
+            yum list available "$@" &>/dev/null && rc=$?
+        fi
+        ;;
+    debian | ubuntu)
+        DEBIAN_FRONTEND=noninteractive apt search "$@" &>/dev/null && rc=$?
+        ;;
+    esac
+    [ $rc -eq -1 ] && return 1
+    return $rc
+}
+export -f sfAvail
+
+function sfDetectFacts() {
     [[ -f /etc/os-release ]] && {
         . /etc/os-release
         LINUX_KIND=$ID
@@ -362,7 +381,12 @@ function compatible_network() {
     # Try installing network-scripts if available
     case $LINUX_KIND in
     redhat | rhel | centos | fedora)
-        sfYum install -q -y network-scripts || true
+        op=-1
+        sfAvail network-scripts && op=$?
+        if [[ ${op} -ne 0 ]]; then
+            return 0
+        fi
+        sfRetry 3m 5 "sfYum install -q -y network-scripts" || true
         ;;
     *) ;;
     esac

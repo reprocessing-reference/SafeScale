@@ -63,22 +63,45 @@ export -f sfWaitForApt
 
 # sfApt does exactly what apt does, but we call sfWaitForApt first
 sfApt() {
-    echo "waiting for apt lock..."
+    rc=-1
     sfWaitForApt
-    echo "running apt " "$@"
-    DEBIAN_FRONTEND=noninteractive apt "$@"
+    DEBIAN_FRONTEND=noninteractive apt "$@" && rc=$?
+    [ $rc -eq -1 ] && return 1
+    return $rc
 }
 export -f sfApt
 
 # try using dnf instead of yum if available
 sfYum() {
+    rc=-1
     if [[ -n $(which dnf) ]]; then
-        dnf "$@"
+        dnf "$@" && rc=$?
     else
-        yum "$@"
+        yum "$@" && rc=$?
     fi
+    [ $rc -eq -1 ] && return 1
+    return $rc
 }
 export -f sfYum
+
+function sfAvail() {
+    rc=-1
+    case $LINUX_KIND in
+    redhat | rhel | centos | fedora)
+        if [[ -n $(which dnf) ]]; then
+            dnf list available "$@" &>/dev/null && rc=$?
+        else
+            yum list available "$@" &>/dev/null && rc=$?
+        fi
+        ;;
+    debian | ubuntu)
+        DEBIAN_FRONTEND=noninteractive apt search "$@" &>/dev/null && rc=$?
+        ;;
+    esac
+    [ $rc -eq -1 ] && return 1
+    return $rc
+}
+export -f sfAvail
 
 sfWaitLockfile() {
     local ROUNDS=600

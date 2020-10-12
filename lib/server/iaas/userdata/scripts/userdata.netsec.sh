@@ -1681,6 +1681,11 @@ function compatible_network() {
     # Try installing network-scripts if available
     case $LINUX_KIND in
     redhat | rhel | centos | fedora)
+        op=-1
+        sfAvail network-scripts && op=$?
+        if [[ ${op} -ne 0 ]]; then
+            return 0
+        fi
         sfRetry 3m 5 "sfYum install -q -y network-scripts" || true
         ;;
     *) ;;
