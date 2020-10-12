@@ -11,6 +11,10 @@ import (
 	"github.com/CS-SI/SafeScale/lib/utils/fail"
 )
 
+func NewEmptySecurityGroup() (*emptysecuritygroup, fail.Error) {
+	return &emptysecuritygroup{}, nil
+}
+
 type emptysecuritygroup struct {
 }
 

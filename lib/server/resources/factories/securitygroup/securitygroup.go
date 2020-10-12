@@ -17,6 +17,8 @@
 package securitygroup
 
 import (
+	"os"
+
 	"github.com/CS-SI/SafeScale/lib/server/iaas"
 	"github.com/CS-SI/SafeScale/lib/server/resources"
 	"github.com/CS-SI/SafeScale/lib/server/resources/abstract"
@@ -54,6 +56,17 @@ func New(svc iaas.Service) (_ resources.SecurityGroup, xerr fail.Error) {
 	if svc == nil {
 		return nil, fail.InvalidInstanceError()
 	}
+
+	mock := ""
+	if mockCandidate := os.Getenv("SAFESCALE_MOCK"); mockCandidate != "" {
+		mock = mockCandidate
+	}
+
+	if mock == "" {
+		roo, nerr := operations.NewEmptySecurityGroup()
+		return roo, nerr
+	}
+
 	rsg, xerr := operations.NewSecurityGroup(svc)
 	if xerr != nil {
 		return nil, xerr

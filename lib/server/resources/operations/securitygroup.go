@@ -17,6 +17,7 @@
 package operations
 
 import (
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -56,6 +57,16 @@ type securityGroup struct {
 func NewSecurityGroup(svc iaas.Service) (resources.SecurityGroup, fail.Error) {
 	if svc == nil {
 		return nil, fail.InvalidParameterError("svc", "cannot be nil")
+	}
+
+	mock := ""
+	if mockCandidate := os.Getenv("SAFESCALE_MOCK"); mockCandidate != "" {
+		mock = mockCandidate
+	}
+
+	if mock == "" {
+		roo, nerr := NewEmptySecurityGroup()
+		return roo, nerr
 	}
 
 	coreInstance, xerr := newCore(svc, "security-group", securityGroupsFolderName, &abstract.SecurityGroup{})
