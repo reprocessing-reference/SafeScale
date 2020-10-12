@@ -240,6 +240,9 @@ func TestEnrichedReport(t *testing.T) {
 	if !strings.Contains(errct, "connection") {
 		t.Errorf("Information loss : %s", errct)
 	}
+	if !strings.Contains(errct, "master-x") {
+		t.Errorf("Information loss : %s", errct)
+	}
 }
 
 func TestWithAnnotations(t *testing.T) {
