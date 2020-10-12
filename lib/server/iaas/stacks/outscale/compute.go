@@ -862,7 +862,7 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 
 	tracer := debug.NewTracer(nil, tracing.ShouldTrace("stacks.outscale"), "(%v)", request).WithStopwatch().Entering()
 	defer tracer.Exiting()
-	defer fail.OnExitLogError(tracer.TraceMessage(), &xerr)
+	defer fail.OnExitLogError(&xerr, tracer.TraceMessage())
 
 	password, xerr := s.getOrCreatePassword(request)
 	if xerr != nil {
@@ -1103,7 +1103,7 @@ func (s *Stack) DeleteHost(hostParam stacks.HostParameter) (xerr fail.Error) {
 
 	tracer := debug.NewTracer(nil, tracing.ShouldTrace("stacks.outscale"), "(%vs)", hostRef).WithStopwatch().Entering()
 	defer tracer.Exiting()
-	defer fail.OnExitLogError(tracer.TraceMessage(), &xerr)
+	defer fail.OnExitLogError(&xerr, tracer.TraceMessage())
 
 	readPublicIpsRequest := osc.ReadPublicIpsRequest{
 		Filters: osc.FiltersPublicIp{VmIds: []string{ahf.Core.ID}},
@@ -1176,7 +1176,7 @@ func (s *Stack) InspectHost(hostParam stacks.HostParameter) (ahf *abstract.HostF
 
 	tracer := debug.NewTracer(nil, tracing.ShouldTrace("stacks.outscale"), "(%s)", hostRef).WithStopwatch().Entering()
 	defer tracer.Exiting()
-	defer fail.OnExitLogError(tracer.TraceMessage(), &xerr)
+	defer fail.OnExitLogError(&xerr, tracer.TraceMessage())
 
 	vm, xerr := s.getVM(ahf.Core.ID)
 	if xerr != nil {
@@ -1211,7 +1211,7 @@ func (s *Stack) InspectHostByName(name string) (ahc *abstract.HostCore, xerr fai
 
 	tracer := debug.NewTracer(nil, tracing.ShouldTrace("stacks.outscale"), "('%s')", name).WithStopwatch().Entering()
 	defer tracer.Exiting()
-	defer fail.OnExitLogError(tracer.TraceMessage(), &xerr)
+	defer fail.OnExitLogError(&xerr, tracer.TraceMessage())
 
 	res, _, err := s.client.VmApi.ReadVms(s.auth, &osc.ReadVmsOpts{
 		ReadVmsRequest: optional.NewInterface(osc.ReadVmsRequest{
@@ -1244,7 +1244,7 @@ func (s *Stack) GetHostState(hostParam stacks.HostParameter) (_ hoststate.Enum, 
 
 	tracer := debug.NewTracer(nil, tracing.ShouldTrace("stacks.outscale")).WithStopwatch().Entering()
 	defer tracer.Exiting()
-	defer fail.OnExitLogError(tracer.TraceMessage(), &xerr)
+	defer fail.OnExitLogError(&xerr, tracer.TraceMessage())
 
 	ahf, _, xerr := stacks.ValidateHostParameter(hostParam)
 	if xerr != nil {
@@ -1263,7 +1263,7 @@ func (s *Stack) ListHosts(details bool) (_ abstract.HostList, xerr fail.Error) {
 
 	tracer := debug.NewTracer(nil, tracing.ShouldTrace("stacks.outscale")).WithStopwatch().Entering()
 	defer tracer.Exiting()
-	defer fail.OnExitLogError(tracer.TraceMessage(), &xerr)
+	defer fail.OnExitLogError(&xerr, tracer.TraceMessage())
 
 	res, _, err := s.client.VmApi.ReadVms(s.auth, nil)
 	if err != nil {
@@ -1310,7 +1310,7 @@ func (s *Stack) StopHost(hostParam stacks.HostParameter) (xerr fail.Error) {
 
 	tracer := debug.NewTracer(nil, tracing.ShouldTrace("stacks.outscale"), "(%s)", hostRef).WithStopwatch().Entering()
 	defer tracer.Exiting()
-	defer fail.OnExitLogError(tracer.TraceMessage(), &xerr)
+	defer fail.OnExitLogError(&xerr, tracer.TraceMessage())
 
 	stopVmsRequest := osc.StopVmsRequest{
 		VmIds:     []string{ahf.Core.ID},
@@ -1334,7 +1334,7 @@ func (s *Stack) StartHost(hostParam stacks.HostParameter) (xerr fail.Error) {
 
 	tracer := debug.NewTracer(nil, tracing.ShouldTrace("stacks.outscale"), "(%s)", hostRef).WithStopwatch().Entering()
 	defer tracer.Exiting()
-	defer fail.OnExitLogError(tracer.TraceMessage(), &xerr)
+	defer fail.OnExitLogError(&xerr, tracer.TraceMessage())
 
 	startVmsRequest := osc.StartVmsRequest{
 		VmIds: []string{ahf.Core.ID},
@@ -1357,7 +1357,7 @@ func (s *Stack) RebootHost(hostParam stacks.HostParameter) (xerr fail.Error) {
 
 	tracer := debug.NewTracer(nil, tracing.ShouldTrace("stacks.outscale"), "(%s)", hostRef).WithStopwatch().Entering()
 	defer tracer.Exiting()
-	defer fail.OnExitLogError(tracer.TraceMessage(), &xerr)
+	defer fail.OnExitLogError(&xerr, tracer.TraceMessage())
 
 	rebootVmsRequest := osc.RebootVmsRequest{
 		VmIds: []string{ahf.Core.ID},
@@ -1395,7 +1395,7 @@ func (s *Stack) ResizeHost(hostParam stacks.HostParameter, request abstract.Host
 
 	tracer := debug.NewTracer(nil, tracing.ShouldTrace("stacks.outscale"), "(%s, %v)", hostRef, request).WithStopwatch().Entering()
 	defer tracer.Exiting()
-	defer fail.OnExitLogError(tracer.TraceMessage(), &xerr)
+	defer fail.OnExitLogError(&xerr, tracer.TraceMessage())
 
 	perf := s.perfFromFreq(request.MinCPUFreq)
 	t := gpuTemplateName(0, request.MaxCores, int(request.MaxRAMSize), perf, 0, "")

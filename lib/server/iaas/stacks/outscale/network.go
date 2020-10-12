@@ -91,7 +91,7 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (an *abstract.Network
 
 	tracer := debug.NewTracer(nil, tracing.ShouldTrace("stacks.outscale"), "(%v)", req).WithStopwatch().Entering()
 	defer tracer.Exiting()
-	defer fail.OnExitLogError(tracer.TraceMessage(), &xerr)
+	defer fail.OnExitLogError(&xerr, tracer.TraceMessage())
 
 	// Check if CIDR intersects with VPC cidr; if not, error
 	vpc, xerr := s.getVpc(s.Options.Network.VPCID)
@@ -111,7 +111,7 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (an *abstract.Network
 		return emptyNetwork, fail.InvalidRequestError("network CIDR '%s' cannot be equal to VPC CIDR ('%s')", req.CIDR, vpc.IpRange)
 	}
 
-	// update defaut security group to allow external trafic
+	// update default security group to allow external trafic
 	secgroup, xerr := s.getNetworkSecurityGroup(s.Options.Network.VPCID)
 	if xerr != nil {
 		return emptyNetwork, xerr
@@ -180,7 +180,7 @@ func (s *Stack) InspectNetwork(id string) (_ *abstract.Network, xerr fail.Error)
 
 	tracer := debug.NewTracer(nil, tracing.ShouldTrace("stacks.outscale"), "(%s)", id).WithStopwatch().Entering()
 	defer tracer.Exiting()
-	defer fail.OnExitLogError(tracer.TraceMessage(), &xerr)
+	defer fail.OnExitLogError(&xerr, tracer.TraceMessage())
 
 	onet, xerr := s.getSubnet(id)
 	if xerr != nil {
@@ -196,14 +196,14 @@ func (s *Stack) InspectNetwork(id string) (_ *abstract.Network, xerr fail.Error)
 
 // InspectNetworkByName returns the network identified by name)
 func (s *Stack) InspectNetworkByName(name string) (_ *abstract.Network, xerr fail.Error) {
+	tracer := debug.NewTracer(nil, tracing.ShouldTrace("stacks.outscale"), "('%s')", name).WithStopwatch().Entering()
+	defer tracer.Exiting()
+	defer fail.OnExitLogError(&xerr, tracer.TraceMessage())
+
 	emptyNetwork := abstract.NewNetwork()
 	if s == nil {
 		return emptyNetwork, fail.InvalidInstanceError()
 	}
-
-	tracer := debug.NewTracer(nil, tracing.ShouldTrace("stacks.outscale"), "('%s')", name).WithStopwatch().Entering()
-	defer tracer.Exiting()
-	defer fail.OnExitLogError(tracer.TraceMessage(), &xerr)
 
 	readSubnetsRequest := osc.ReadSubnetsRequest{
 		Filters: osc.FiltersSubnet{
@@ -244,7 +244,7 @@ func (s *Stack) ListNetworks() (_ []*abstract.Network, xerr fail.Error) {
 
 	tracer := debug.NewTracer(nil, tracing.ShouldTrace("stacks.outscale")).WithStopwatch().Entering()
 	defer tracer.Exiting()
-	defer fail.OnExitLogError(tracer.TraceMessage(), &xerr)
+	defer fail.OnExitLogError(&xerr, tracer.TraceMessage())
 
 	readSubnetsRequest := osc.ReadSubnetsRequest{
 		Filters: osc.FiltersSubnet{
@@ -345,7 +345,7 @@ func (s *Stack) DeleteNetwork(id string) (xerr fail.Error) {
 
 	tracer := debug.NewTracer(nil, tracing.ShouldTrace("stacks.outscale"), "(%s)", id).WithStopwatch().Entering()
 	defer tracer.Exiting()
-	defer fail.OnExitLogError(tracer.TraceMessage(), &xerr)
+	defer fail.OnExitLogError(&xerr, tracer.TraceMessage())
 
 	// Reads NIS that belong to the subnet
 	readNicsRequest := osc.ReadNicsRequest{
