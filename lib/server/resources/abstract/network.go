@@ -183,3 +183,14 @@ func (vip *VirtualIP) Replace(p data.Clonable) data.Clonable {
 	}
 	return vip
 }
+
+func (vip *VirtualIP) OK() bool {
+	if vip == nil {
+		return false
+	}
+
+	result := true
+	result = result && vip.ID != ""
+
+	return result
+}

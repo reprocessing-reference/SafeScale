@@ -271,7 +271,7 @@ func (hc *HostCore) Deserialize(buf []byte) (xerr fail.Error) {
 	var panicErr error
 	defer func() {
 		if panicErr != nil {
-			xerr = fail.ToError(panicErr) // If panic occured, transforms err to a fail.Error if needed
+			xerr = fail.ToError(panicErr) // If panic occurred, transforms err to a fail.Error if needed
 		}
 	}()
 	defer fail.OnPanic(&panicErr) // json.Unmarshal may panic
