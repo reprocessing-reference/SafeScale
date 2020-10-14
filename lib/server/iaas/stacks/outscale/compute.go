@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/CS-SI/SafeScale/lib/server/iaas/stacks"
 	"github.com/CS-SI/SafeScale/lib/utils/debug"
 	"github.com/CS-SI/SafeScale/lib/utils/debug/tracing"
@@ -406,6 +408,10 @@ func (s *Stack) getOrCreatePassword(request abstract.HostRequest) (string, fail.
 }
 
 func (s *Stack) prepareUserData(request abstract.HostRequest, ud *userdata.Content) fail.Error {
+	if ud == nil {
+		return fail.InvalidParameterError("ud", "cannot be nil")
+	}
+
 	cidr := func() string {
 		if len(request.Networks) == 0 {
 			return ""
@@ -847,49 +853,72 @@ func (s *Stack) addPublicIPs(primaryNIC *osc.Nic, otherNICs []osc.Nic) (*osc.Pub
 }
 
 // CreateHost creates an host that fulfils the request
-func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull, udc *userdata.Content, xerr fail.Error) {
-	nullAHF := abstract.NewHostFull()
-	nullUDC := userdata.NewContent()
+func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull, userData *userdata.Content, xerr fail.Error) {
+	nullAhf := abstract.NewHostFull()
+	nullUdc := userdata.NewContent()
 	if s == nil {
-		return nullAHF, nullUDC, fail.InvalidInstanceError()
+		return nullAhf, nullUdc, fail.InvalidInstanceError()
 	}
 	if request.KeyPair == nil {
-		return nullAHF, nullUDC, fail.InvalidParameterError("request.KeyPair", "cannot be nil")
+		return nullAhf, nullUdc, fail.InvalidParameterError("request.KeyPair", "cannot be nil")
 	}
 	if len(request.Networks) == 0 && !request.PublicIP {
-		return nullAHF, nullUDC, abstract.ResourceInvalidRequestError("host creation", "cannot create a host without public IP or without attached network")
+		return nullAhf, nullUdc, abstract.ResourceInvalidRequestError("host creation", "cannot create a host without public IP or without attached network")
 	}
 
 	tracer := debug.NewTracer(nil, tracing.ShouldTrace("stacks.outscale"), "(%v)", request).WithStopwatch().Entering()
 	defer tracer.Exiting()
 	defer fail.OnExitLogError(&xerr, tracer.TraceMessage())
 
+	userData = userdata.NewContent()
+
+	// The Default Network is the first of the provided list, by convention
+	defaultNetwork := request.Networks[0]
+
+	// If no key pair is supplied create one
+	if request.KeyPair == nil {
+		id, err := uuid.NewV4()
+		if err != nil {
+			xerr = fail.Wrap(err, "failed to create host UUID")
+			logrus.Debugf(strprocess.Capitalize(xerr.Error()))
+			return nullAhf, nullUdc, xerr
+		}
+
+		name := fmt.Sprintf("%s_%s", request.ResourceName, id)
+		request.KeyPair, err = s.CreateKeyPair(name)
+		if err != nil {
+			xerr = fail.Wrap(err, "failed to create host key pair")
+			logrus.Debugf(strprocess.Capitalize(xerr.Error()))
+			return nullAhf, nullUdc, xerr
+		}
+	}
 	password, xerr := s.getOrCreatePassword(request)
 	if xerr != nil {
-		return nullAHF, nullUDC, xerr
+		return nullAhf, nullUdc, xerr
 	}
 	request.Password = password
 
-	subnetID, xerr := s.getSubnetID(request)
+	// Constructs userdata content
+	xerr = userData.Prepare(*s.configurationOptions, request, defaultNetwork.CIDR, "")
 	if xerr != nil {
-		return nullAHF, nullUDC, xerr
+		xerr = fail.Prepend(xerr, "failed to prepare user data content")
+		logrus.Debugf(strprocess.Capitalize(xerr.Error()))
+		return nullAhf, nullUdc, xerr
 	}
 
-	xerr = s.prepareUserData(request, udc)
+	_, xerr = s.InspectTemplate(request.TemplateID)
 	if xerr != nil {
-		return nullAHF, nullUDC, xerr
-	}
-	if xerr = s.initHostProperties(&request, ahf); xerr != nil {
-		return nullAHF, nullUDC, xerr
+		return nullAhf, nullUdc, fail.Prepend(xerr, "failed to get image")
 	}
 
-	userDataPhase1, xerr := udc.Generate("phase1")
+	// Sets provider parameters to create host
+	userDataPhase1, xerr := userData.Generate(userdata.PHASE1_INIT)
 	if xerr != nil {
-		return nullAHF, nullUDC, xerr
+		return nullAhf, nullUdc, xerr
 	}
 	vmType, xerr := outscaleTemplateID(request.TemplateID)
 	if xerr != nil {
-		return nullAHF, nullUDC, xerr
+		return nullAhf, nullUdc, xerr
 	}
 	op := s.Options.Compute.OperatorUsername
 	patchSSH := fmt.Sprintf("\nchown -R %s:%s /home/%s", op, op, op)
@@ -899,11 +928,11 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 	// Import keypair to create host
 	creationKeyPair, xerr := abstract.NewKeyPair(request.ResourceName + "_install")
 	if xerr != nil {
-		return nullAHF, nullUDC, xerr
+		return nullAhf, nullUdc, xerr
 	}
 	xerr = s.ImportKeyPair(creationKeyPair)
 	if xerr != nil {
-		return nullAHF, nullUDC, xerr
+		return nullAhf, nullUdc, xerr
 	}
 	defer func() {
 		derr := s.DeleteKeyPair(creationKeyPair.Name)
@@ -916,7 +945,7 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 		ImageId:  request.ImageID,
 		UserData: base64.StdEncoding.EncodeToString(buf.Bytes()),
 		VmType:   vmType,
-		SubnetId: subnetID,
+		SubnetId: "", // FIXME Put something in here
 		Placement: osc.Placement{
 			SubregionName: s.Options.Compute.Subregion,
 			Tenancy:       s.Options.Compute.DefaultTenancy,
@@ -963,11 +992,11 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 		CreateVmsRequest: optional.NewInterface(vmsRequest),
 	})
 	if err != nil {
-		return nullAHF, nullUDC, fail.Wrap(normalizeError(err), fmt.Sprintf("failed to create host '%s'", request.ResourceName))
+		return nullAhf, nullUdc, fail.Wrap(normalizeError(err), fmt.Sprintf("failed to create host '%s'", request.ResourceName))
 	}
 
 	if len(resVM.Vms) == 0 {
-		return nullAHF, nullUDC, fail.InconsistentError("virtual machine list empty")
+		return nullAhf, nullUdc, fail.InconsistentError("virtual machine list empty")
 	}
 
 	vm := resVM.Vms[0]
@@ -982,47 +1011,47 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 
 	_, xerr = s.WaitHostState(vm.VmId, hoststate.STARTED, time.Duration(0))
 	if xerr != nil {
-		return nullAHF, nullUDC, xerr
+		return nullAhf, nullUdc, xerr
 	}
 	// Retrieve default Nic use to create public ip
 	nics, xerr := s.getNICS(vm.VmId)
 	if xerr != nil {
-		return nullAHF, nullUDC, xerr
+		return nullAhf, nullUdc, xerr
 	}
 	if len(nics) == 0 {
-		return nullAHF, nullUDC, fail.InconsistentError("No network interface associated to vm")
+		return nullAhf, nullUdc, fail.InconsistentError("No network interface associated to vm")
 	}
 	defaultNic := nics[0]
 
 	nics, xerr = s.addNICS(&request, vm.VmId)
 	if xerr != nil {
-		return nullAHF, nullUDC, xerr
+		return nullAhf, nullUdc, xerr
 	}
 	if request.PublicIP {
 		ip, xerr := s.addPublicIPs(&defaultNic, nics)
 		if xerr != nil {
-			return nullAHF, nullUDC, xerr
+			return nullAhf, nullUdc, xerr
 		}
 		if ip != nil {
-			udc.PublicIP = ip.PublicIp
-			vm.PublicIp = udc.PublicIP
+			userData.PublicIP = ip.PublicIp
+			vm.PublicIp = userData.PublicIP
 		}
 	}
 
 	xerr = s.addGPUs(&request, vm.VmId)
 	if xerr != nil {
-		return nullAHF, nullUDC, xerr
+		return nullAhf, nullUdc, xerr
 	}
 	xerr = s.setResourceTags(vm.VmId, map[string]string{
 		"name": request.ResourceName,
 	})
 	if xerr != nil {
-		return nullAHF, nullUDC, xerr
+		return nullAhf, nullUdc, xerr
 	}
 
 	_, xerr = s.WaitHostState(vm.VmId, hoststate.STARTED, time.Duration(0))
 	if xerr != nil {
-		return nullAHF, nullUDC, xerr
+		return nullAhf, nullUdc, xerr
 	}
 
 	ahf.Core.ID = vm.VmId
@@ -1032,7 +1061,7 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 	ahf.Core.LastState = hoststate.STARTED
 	nics = append(nics, defaultNic)
 	xerr = s.setHostProperties(ahf, request.Networks, &vm, nics)
-	return ahf, udc, xerr
+	return ahf, userData, xerr
 }
 
 func (s *Stack) getSubnetID(request abstract.HostRequest) (string, fail.Error) {
