@@ -37,6 +37,7 @@ ERRCHECK := github.com/kisielk/errcheck
 XUNIT := github.com/tebeka/go2xunit
 COVERTOOL := github.com/dlespiau/covertool
 GOVENDOR := github.com/kardianos/govendor
+MOQ := github.com/matryer/moq
 
 BUILD_TAGS =
 export BUILD_TAGS
@@ -83,6 +84,9 @@ getdevdeps: begin ground
 	fi
 	@which mockgen > /dev/null; if [ $$? -ne 0 ]; then \
 		printf "%b" "$(OK_COLOR)$(INFO_STRING) Downloading mockgen...\n" && $(GO) get -u  $(MOCKGEN) &>/dev/null || true; \
+	fi
+	@which moq > /dev/null; if [ $$? -ne 0 ]; then \
+		printf "%b" "$(OK_COLOR)$(INFO_STRING) Downloading moq...\n" && $(GO) get -u  $(MOQ) &>/dev/null || true; \
 	fi
 	@which errcheck > /dev/null; if [ $$? -ne 0 ]; then \
 		printf "%b" "$(OK_COLOR)$(INFO_STRING) Downloading errcheck...\n" && $(GO) get -u  $(ERRCHECK) &>/dev/null || true; \

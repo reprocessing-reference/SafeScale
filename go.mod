@@ -53,19 +53,19 @@ require (
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.6.1
 	github.com/urfave/cli/v2 v2.1.1
-	github.com/vektra/mockery v1.1.2 // indirect
 	github.com/xrash/smetrics v0.0.0-20170218160415-a3153f7040e9
 	go.opencensus.io v0.22.2 // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20200822124328-c89045814202 // indirect
 	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6
 	golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d
+	golang.org/x/tools v0.0.0-20201013183236-0112737ef124 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gomodules.xyz/stow v0.2.4
 	google.golang.org/api v0.15.0
 	google.golang.org/appengine v1.6.5 // indirect
 	google.golang.org/grpc v1.27.0
-	google.golang.org/protobuf v1.25.0
+	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/ini.v1 v1.55.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 )
