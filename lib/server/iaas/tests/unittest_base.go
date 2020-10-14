@@ -27,9 +27,9 @@ import (
 
 	"github.com/CS-SI/SafeScale/lib/server/iaas"
 	"github.com/CS-SI/SafeScale/lib/server/iaas/stacks/api"
+	"github.com/CS-SI/SafeScale/lib/server/iaas/stacks/aws"
 	"github.com/CS-SI/SafeScale/lib/server/iaas/stacks/gcp"
 	"github.com/CS-SI/SafeScale/lib/server/iaas/stacks/huaweicloud"
-	libvirt "github.com/CS-SI/SafeScale/lib/server/iaas/stacks/libvirt"
 	"github.com/CS-SI/SafeScale/lib/server/iaas/stacks/openstack"
 	"github.com/CS-SI/SafeScale/lib/server/iaas/userdata"
 	"github.com/CS-SI/SafeScale/lib/server/resources/abstract"
@@ -40,10 +40,10 @@ import (
 	"github.com/CS-SI/SafeScale/lib/utils/fail"
 	"github.com/CS-SI/SafeScale/lib/utils/temporal"
 
+	_ "github.com/CS-SI/SafeScale/lib/server/iaas/providers/aws"            // Imported to initialize tenant gcp
 	_ "github.com/CS-SI/SafeScale/lib/server/iaas/providers/cloudferro"     // Imported to initialize tenant ovh
 	_ "github.com/CS-SI/SafeScale/lib/server/iaas/providers/flexibleengine" // Imported to initialize tenant flexibleengine
 	_ "github.com/CS-SI/SafeScale/lib/server/iaas/providers/gcp"            // Imported to initialize tenant gcp
-	_ "github.com/CS-SI/SafeScale/lib/server/iaas/providers/local"          // Imported to initialize tenant local
 	_ "github.com/CS-SI/SafeScale/lib/server/iaas/providers/opentelekom"    // Imported to initialize tenant opentelekoms
 	_ "github.com/CS-SI/SafeScale/lib/server/iaas/providers/ovh"            // Imported to initialize tenant ovh
 )
@@ -57,10 +57,10 @@ type ServiceTester struct {
 func (tester *ServiceTester) VerifyStacks(t *testing.T) {
 	var stack api.Stack
 
-	stack = &libvirt.Stack{}     // nolint
 	stack = &huaweicloud.Stack{} // nolint
 	stack = &openstack.Stack{}   // nolint
 	stack = &gcp.Stack{}         // nolint
+	stack = &aws.Stack{}         // nolint
 
 	_ = stack
 }
