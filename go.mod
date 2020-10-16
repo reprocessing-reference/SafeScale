@@ -29,10 +29,7 @@ require (
 	github.com/jcelliott/lumber v0.0.0-20160324203708-dd349441af25 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/kr/pretty v0.2.0 // indirect
-	github.com/libvirt/libvirt-go v4.8.0+incompatible
-	github.com/libvirt/libvirt-go-xml v4.8.0+incompatible
 	github.com/magiconair/properties v1.8.1
-	github.com/matryer/moq v0.1.3 // indirect
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/mitchellh/mapstructure v1.2.2 // indirect
 	github.com/mjibson/go-dsp v0.0.0-20180508042940-11479a337f12
@@ -59,7 +56,6 @@ require (
 	golang.org/x/net v0.0.0-20200822124328-c89045814202 // indirect
 	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6
 	golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d
-	golang.org/x/tools v0.0.0-20201013183236-0112737ef124 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gomodules.xyz/stow v0.2.4
 	google.golang.org/api v0.15.0
