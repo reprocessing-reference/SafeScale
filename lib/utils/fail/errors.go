@@ -78,6 +78,10 @@ type errorCore struct {
 	grpcCode codes.Code
 }
 
+func Errorf(cause error, msg ...interface{}) Error {
+	return newError(cause, nil, msg...)
+}
+
 // NewError creates a new failure report
 func NewError(msg ...interface{}) Error {
 	return newError(nil, nil, msg...)
@@ -780,7 +784,7 @@ func (e *ErrOverflow) Annotate(key string, value data.Annotation) data.Annotatab
 	return e
 }
 
-// ErrOverload when action cannot be honored because provider is overloaded (ie too many requests occured in a given time).
+// ErrOverload when action cannot be honored because provider is overloaded (ie too many requests occurred in a given time).
 type ErrOverload struct {
 	*errorCore
 }
