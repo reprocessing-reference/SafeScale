@@ -1096,27 +1096,6 @@ func (s *Stack) WaitHostState(hostParam stacks.HostParameter, state hoststate.En
 					return innerXErr
 				}
 
-				// VPL: moved in NormalizeError
-				// errorCode, failed := GetUnexpectedGophercloudErrorCode(innerErr)
-				// if failed == nil {
-				//     switch errorCode {
-				//     case 408:
-				//         return innerErr
-				//     case 429:
-				//         return innerErr
-				//     case 500:
-				//         return innerErr
-				//     case 503:
-				//         return innerErr
-				//     default:
-				//         return retry.StopRetryError(innerErr, "error getting host '%s': code: %d, reason", hostRef, errorCode)
-				//     }
-				// }
-
-				if errorMeansServiceUnavailable(innerXErr) {
-					return innerXErr
-				}
-
 				// Any other error stops the retry
 				return retry.StopRetryError(innerXErr, "error getting host '%s'", hostRef)
 			}

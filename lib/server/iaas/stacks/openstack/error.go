@@ -99,11 +99,6 @@ func NormalizeError(err error) fail.Error {
 	return defaultErrorInterpreter(err)
 }
 
-// errorMeansServiceUnavailable tells of err contains "service unavailable" (lower/upper/mixed case)
-func errorMeansServiceUnavailable(err error) bool {
-	return strings.Contains(strings.ToLower(err.Error()), "service unavailable")
-}
-
 // ParseNeutronError parses neutron json error and returns fields
 // Returns (nil, fail.ErrSyntax) if json syntax error occured (and maybe operation should be retried...)
 // Returns (nil, fail.Error) if any other error occurs

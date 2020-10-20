@@ -19,6 +19,7 @@ package gcp
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -391,8 +392,10 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 			hostCore.ID = server.ID
 			hostCore.Name = server.Name
 
+			nullAhf.Core = hostCore
+
 			// Wait that Host is ready, not just that the build is started
-			_, innerErr = s.WaitHostReady(ahf, temporal.GetLongOperationTimeout())
+			_, innerErr = s.WaitHostReady(nullAhf, temporal.GetLongOperationTimeout())
 			if innerErr != nil {
 				killErr := s.DeleteHost(hostCore.ID)
 				if killErr != nil {
@@ -461,6 +464,8 @@ func (s *Stack) WaitHostReady(hostParam stacks.HostParameter, timeout time.Durat
 	if xerr != nil {
 		return nullAhc, xerr
 	}
+
+	hostRef = cleanHostRef(hostRef)
 
 	tracer := debug.NewTracer(nil, tracing.ShouldTrace("stack.gcp") || tracing.ShouldTrace("stacks.compute"), "(%s)", hostRef).Entering()
 	defer tracer.Exiting()
@@ -620,6 +625,9 @@ func (s *Stack) InspectHost(hostParam stacks.HostParameter) (host *abstract.Host
 	if xerr != nil {
 		return nil, xerr
 	}
+
+	hostRef = cleanHostRef(hostRef)
+
 	if ahf.Core.ID == "" {
 		return hostNull, fail.InvalidParameterError("hostParam", "hostParam must be an ID as a string, or an *abstract.HostCore or an *abstract.HostFull")
 	}
@@ -769,6 +777,14 @@ func (s *Stack) InspectHostByName(name string) (_ *abstract.HostCore, xerr fail.
 	return nil, abstract.ResourceNotFoundError("host", name)
 }
 
+func cleanHostRef(ref string) string {
+	if strings.HasPrefix(ref, "'") && strings.HasSuffix(ref, "'") {
+		slen := len(ref)
+		return ref[1 : slen-1]
+	}
+	return ref
+}
+
 // DeleteHost deletes the host identified by id
 func (s *Stack) DeleteHost(hostParam stacks.HostParameter) (xerr fail.Error) {
 	if s == nil {
@@ -778,6 +794,8 @@ func (s *Stack) DeleteHost(hostParam stacks.HostParameter) (xerr fail.Error) {
 	if xerr != nil {
 		return xerr
 	}
+
+	hostRef = cleanHostRef(hostRef)
 
 	defer debug.NewTracer(nil, tracing.ShouldTrace("stack.gcp") || tracing.ShouldTrace("stacks.compute"), "(%s)", hostRef).Entering().Exiting()
 	defer fail.OnExitLogError(&xerr)
@@ -885,6 +903,8 @@ func (s *Stack) StopHost(hostParam stacks.HostParameter) fail.Error {
 		return xerr
 	}
 
+	hostLabel = cleanHostRef(hostLabel)
+
 	defer debug.NewTracer(nil, tracing.ShouldTrace("stack.gcp") || tracing.ShouldTrace("stacks.compute"), "(%s)", hostLabel).Entering().Exiting()
 	defer fail.OnExitLogError(&xerr)
 
@@ -915,6 +935,8 @@ func (s *Stack) StartHost(hostParam stacks.HostParameter) fail.Error {
 		return xerr
 	}
 
+	hostLabel = cleanHostRef(hostLabel)
+
 	defer debug.NewTracer(nil, tracing.ShouldTrace("stack.gcp") || tracing.ShouldTrace("stacks.compute"), "(%s)", hostLabel).Entering().Exiting()
 	defer fail.OnExitLogError(&xerr)
 
@@ -944,6 +966,8 @@ func (s *Stack) RebootHost(hostParam stacks.HostParameter) fail.Error {
 	if xerr != nil {
 		return xerr
 	}
+
+	hostLabel = cleanHostRef(hostLabel)
 
 	defer debug.NewTracer(nil, tracing.ShouldTrace("stack.gcp") || tracing.ShouldTrace("stacks.compute"), "(%s)", hostLabel).Entering().Exiting()
 	defer fail.OnExitLogError(&xerr)

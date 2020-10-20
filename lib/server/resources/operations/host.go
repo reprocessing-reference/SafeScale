@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 
 	"github.com/CS-SI/SafeScale/lib/protocol"
@@ -229,6 +230,10 @@ func (rh *host) cacheAccessInformation(task concurrency.Task) fail.Error {
 			GatewayConfig:          primaryGatewayConfig,
 			SecondaryGatewayConfig: secondaryGatewayConfig,
 		}
+
+		// FIXME Check here if this is an invalid profile or what
+		logrus.Warnf(spew.Sdump("OPP: %s", rh.sshProfile))
+
 		return nil
 	})
 }

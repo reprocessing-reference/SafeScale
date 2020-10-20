@@ -109,7 +109,7 @@ func (n *Network) OK() bool {
 	}
 	result = result && (n.GatewayID != "")
 	if n.GatewayID == "" {
-		logrus.Debug("Network without getGateway")
+		logrus.Debug("Network without Gateway")
 	}
 
 	return result
