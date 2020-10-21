@@ -234,6 +234,10 @@ func (rh *host) cacheAccessInformation(task concurrency.Task) fail.Error {
 		// FIXME Check here if this is an invalid profile or what
 		logrus.Warnf(spew.Sdump("OPP: %s", rh.sshProfile))
 
+		if rh.sshProfile.IsNull() {
+			return fail.InvalidInstanceContentError("rh.sshProfile", "is null and it should not")
+		}
+
 		return nil
 	})
 }

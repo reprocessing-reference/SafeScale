@@ -82,7 +82,7 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (*abstract.Network, f
 		}
 
 		xerr := waitUntilOperationIsSuccessfulOrTimeout(oco, temporal.GetMinDelay(), 2*temporal.GetContextTimeout())
-		if err != nil {
+		if xerr != nil {
 			return nil, xerr
 		}
 	}

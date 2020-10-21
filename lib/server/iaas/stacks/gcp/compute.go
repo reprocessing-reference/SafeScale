@@ -225,8 +225,92 @@ func (s *Stack) DeleteKeyPair(id string) fail.Error {
 	return fail.NotImplementedError("DeleteKeyPair() not implemented yet") // FIXME: Technical debt
 }
 
+func (s *Stack) complementHost(hostCore *abstract.HostCore, server *abstract.HostCore) (host *abstract.HostFull, xerr fail.Error) {
+	nullAhf := abstract.NewHostFull()
+	nullAhf.Core = hostCore
+	nullAhf.Core.ID = server.ID
+
+	logrus.Warnf("Setting core.Name to %s", server.Name)
+	nullAhf.Core.Name = server.Name
+	nullAhf.Core.LastState = server.LastState
+
+	gcpHost, err := s.ComputeService.Instances.Get(s.GcpConfig.ProjectID, s.GcpConfig.Zone, server.Name).Do()
+	if err != nil {
+		return nil, fail.ToError(err)
+	}
+	_ = &compute.Instance{}
+	nullAhf.Core.LastState, err = stateConvert(gcpHost.Status)
+	if err != nil {
+		return nil, fail.ToError(err)
+	}
+
+	var subnets []IPInSubnet
+	for _, nit := range gcpHost.NetworkInterfaces {
+		snet := genURL(nit.Subnetwork)
+		if !utils.IsEmpty(snet) {
+			pubIP := ""
+			for _, aco := range nit.AccessConfigs {
+				if aco != nil {
+					if aco.NatIP != "" {
+						pubIP = aco.NatIP
+					}
+				}
+			}
+
+			subnets = append(subnets, IPInSubnet{
+				Subnet:   snet,
+				IP:       nit.NetworkIP,
+				PublicIP: pubIP,
+			})
+		}
+	}
+
+	var resouceNetworks []IPInSubnet
+	for _, sn := range subnets {
+		region, err := getRegionFromSelfLink(sn.Subnet)
+		if err != nil {
+			continue
+		}
+		psg, err := s.ComputeService.Subnetworks.Get(s.GcpConfig.ProjectID, region, getResourceNameFromSelfLink(sn.Subnet)).Do()
+		if err != nil {
+			continue
+		}
+
+		resouceNetworks = append(resouceNetworks, IPInSubnet{
+			Subnet:   sn.Subnet,
+			Name:     psg.Name,
+			ID:       strconv.FormatUint(psg.Id, 10),
+			IP:       sn.IP,
+			PublicIP: sn.PublicIP,
+		})
+	}
+
+	ip4bynetid := make(map[string]string)
+	netnamebyid := make(map[string]string)
+	netidbyname := make(map[string]string)
+
+	ipv4 := ""
+	for _, rn := range resouceNetworks {
+		ip4bynetid[rn.ID] = rn.IP
+		netnamebyid[rn.ID] = rn.Name
+		netidbyname[rn.Name] = rn.ID
+		if rn.PublicIP != "" {
+			ipv4 = rn.PublicIP
+		}
+	}
+
+	nullAhf.Network.IPv4Addresses = ip4bynetid
+	nullAhf.Network.NetworksByID = netnamebyid
+	nullAhf.Network.NetworksByName = netidbyname
+	nullAhf.Network.PublicIPv4 = ipv4
+
+	nullAhf.Sizing = fromMachineTypeToAllocatedSize(gcpHost.MachineType)
+
+	return nullAhf, nil
+}
+
 // CreateHost creates an host satisfying request
-func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull, userData *userdata.Content, xerr fail.Error) {
+func (s *Stack) CreateHost(request abstract.HostRequest) (_ *abstract.HostFull, userData *userdata.Content, xerr fail.Error) {
 	nullAhf := abstract.NewHostFull()
 	nullUd := userdata.NewContent()
 	if s == nil {
@@ -239,7 +323,7 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 
 	resourceName := request.ResourceName
 	networks := request.Networks
-	hostMustHavePublicIP := request.PublicIP
+	hostMustHavePublicIP := request.IsGateway || request.PublicIP
 
 	if len(networks) == 0 {
 		return nullAhf, nullUd, fail.InvalidRequestError("the host %s must be on at least one network (even if public)", resourceName)
@@ -273,7 +357,7 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 	// The Default Network is the first of the provided list, by convention
 	defaultNetwork := request.Networks[0]
 	defaultNetworkID := defaultNetwork.ID
-	isGateway := defaultNetwork == nil // || defaultNetwork.Name == abstract.SingleHostNetworkName
+	isGateway := request.IsGateway
 
 	// if defaultGateway == nil && !hostMustHavePublicIP {
 	if request.DefaultRouteIP == "" && !hostMustHavePublicIP {
@@ -389,10 +473,15 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 				return fail.NewError("failed to create server")
 			}
 
-			hostCore.ID = server.ID
-			hostCore.Name = server.Name
+			// FIXME Add complementHost
+			nullAhf, xerr = s.complementHost(hostCore, server)
+			if xerr != nil {
+				return xerr
+			}
 
-			nullAhf.Core = hostCore
+			nullAhf.Network.DefaultNetworkID = defaultNetworkID
+			nullAhf.Network.IsGateway = request.IsGateway
+			nullAhf.Sizing = converters.HostTemplateToHostEffectiveSizing(*template)
 
 			// Wait that Host is ready, not just that the build is started
 			_, innerErr = s.WaitHostReady(nullAhf, temporal.GetLongOperationTimeout())
@@ -414,18 +503,16 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 		temporal.GetLongOperationTimeout(),
 	)
 	if retryErr != nil {
-		return nil, userData, retryErr
+		return nullAhf, userData, retryErr
 	}
 	if desistError != nil {
 		return nullAhf, nullUd, abstract.ResourceForbiddenError(request.ResourceName, fmt.Sprintf("error creating ahf: %s", desistError.Error()))
 	}
 	logrus.Debugf("ahf resource created.")
 
-	newHost := abstract.NewHostFull()
-	newHost.Core = hostCore
-	newHost.Sizing = converters.HostTemplateToHostEffectiveSizing(*template)
-	newHost.Network.IsGateway = isGateway
-	newHost.Network.DefaultNetworkID = defaultNetworkID
+	nullAhf.Sizing = converters.HostTemplateToHostEffectiveSizing(*template)
+	nullAhf.Network.IsGateway = isGateway
+	nullAhf.Network.DefaultNetworkID = defaultNetworkID
 
 	// Starting from here, delete host if exiting with error
 	defer func() {
@@ -446,11 +533,11 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 		}
 	}()
 
-	if !newHost.OK() {
-		logrus.Warnf("Missing data in ahf: %s", spew.Sdump(newHost))
+	if !nullAhf.OK() {
+		logrus.Warnf("Missing data in ahf: %s", spew.Sdump(nullAhf))
 	}
 
-	return newHost, userData, nil
+	return nullAhf, userData, nil
 }
 
 // WaitHostReady waits an host achieve ready state
@@ -523,6 +610,7 @@ func buildGcpMachine(
 	template *abstract.HostTemplate,
 ) (*abstract.HostCore, fail.Error) {
 
+	logrus.Warnf("Is this public ? : %t", isPublic)
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
 
 	imageURL := imageID
@@ -602,6 +690,9 @@ func buildGcpMachine(
 	}
 
 	logrus.Tracef("Got compute.Instance, err: %#v, %v", inst, err)
+	if len(inst.NetworkInterfaces) > 0 {
+		logrus.Tracef("Got network info: %#v", inst.NetworkInterfaces[0])
+	}
 
 	if googleapi.IsNotModified(err) {
 		logrus.Warnf("Instance not modified since insert.")
@@ -610,6 +701,9 @@ func buildGcpMachine(
 	hostCore := abstract.NewHostCore()
 	hostCore.ID = strconv.FormatUint(inst.Id, 10)
 	hostCore.Name = inst.Name
+	if state, err := stateConvert(inst.Status); err == nil {
+		hostCore.LastState = state
+	}
 
 	return hostCore, nil
 }

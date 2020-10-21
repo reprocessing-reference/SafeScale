@@ -788,6 +788,7 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (host *abstract.HostFul
 	logrus.Debugf("requesting host '%s' resource creation...", request.ResourceName)
 	// Retry creation until success, for 10 minutes
 	var server *servers.Server
+
 	retryErr := retry.WhileUnsuccessfulDelay5Seconds(
 		func() (innerErr error) {
 			innerErr = netretry.WhileCommunicationUnsuccessfulDelay1Second(
