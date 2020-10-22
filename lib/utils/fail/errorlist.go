@@ -31,7 +31,7 @@ type ErrorList struct {
 // NewErrorList creates a ErrorList
 func NewErrorList(errors []error) Error {
 	if len(errors) == 0 {
-		return &ErrorList{}
+		return nil
 	}
 
 	return &ErrorList{

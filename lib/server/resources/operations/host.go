@@ -1071,6 +1071,9 @@ func (rh *host) Delete(task concurrency.Task) fail.Error {
 					if state, stateErr := svc.GetHostState(rh.GetID()); stateErr == nil {
 						logrus.Warnf("While deleting the status was [%s]", state)
 						if state == hoststate.ERROR {
+							if _, ok := stateErr.(*fail.ErrNotFound); !ok {
+								return nil
+							}
 							return fail.NotAvailableError("host is in state ERROR")
 						}
 					} else {

@@ -65,7 +65,7 @@ func (s *Stack) CreateVolume(request abstract.VolumeRequest) (*abstract.Volume, 
 
 	op, err := s.ComputeService.Disks.Insert(s.GcpConfig.ProjectID, s.GcpConfig.Zone, newDisk).Do()
 	if err != nil {
-		return nil, fail.ToError(err)
+		return nil, normalizeError(err)
 	}
 
 	oco := OpContext{
@@ -82,7 +82,7 @@ func (s *Stack) CreateVolume(request abstract.VolumeRequest) (*abstract.Volume, 
 
 	gcpDisk, err := s.ComputeService.Disks.Get(s.GcpConfig.ProjectID, s.GcpConfig.Zone, request.Name).Do()
 	if err != nil {
-		return nil, fail.ToError(err)
+		return nil, normalizeError(err)
 	}
 
 	nvol := abstract.NewVolume()
@@ -116,7 +116,7 @@ func (s *Stack) InspectVolume(ref string) (_ *abstract.Volume, xerr fail.Error) 
 
 	gcpDisk, err := s.ComputeService.Disks.Get(s.GcpConfig.ProjectID, s.GcpConfig.Zone, ref).Do()
 	if err != nil {
-		return nil, fail.ToError(err)
+		return nil, normalizeError(err)
 	}
 
 	nvol := abstract.NewVolume()
@@ -207,7 +207,7 @@ func (s *Stack) DeleteVolume(ref string) fail.Error {
 	service := s.ComputeService
 	op, err := s.ComputeService.Disks.Delete(s.GcpConfig.ProjectID, s.GcpConfig.Zone, ref).Do()
 	if err != nil {
-		return fail.ToError(err)
+		return normalizeError(err)
 	}
 
 	oco := OpContext{
@@ -238,12 +238,12 @@ func (s *Stack) CreateVolumeAttachment(request abstract.VolumeAttachmentRequest)
 
 	gcpInstance, err := s.ComputeService.Instances.Get(s.GcpConfig.ProjectID, s.GcpConfig.Zone, request.HostID).Do()
 	if err != nil {
-		return "", fail.ToError(err)
+		return "", normalizeError(err)
 	}
 
 	gcpDisk, err := s.ComputeService.Disks.Get(s.GcpConfig.ProjectID, s.GcpConfig.Zone, request.VolumeID).Do()
 	if err != nil {
-		return "", fail.ToError(err)
+		return "", normalizeError(err)
 	}
 
 	cad := &compute.AttachedDisk{
@@ -253,7 +253,7 @@ func (s *Stack) CreateVolumeAttachment(request abstract.VolumeAttachmentRequest)
 
 	op, err := s.ComputeService.Instances.AttachDisk(s.GcpConfig.ProjectID, s.GcpConfig.Zone, gcpInstance.Name, cad).Do()
 	if err != nil {
-		return "", fail.ToError(err)
+		return "", normalizeError(err)
 	}
 
 	oco := OpContext{
@@ -290,7 +290,7 @@ func (s *Stack) InspectVolumeAttachment(serverID, vaID string) (*abstract.Volume
 
 	gcpInstance, err := s.ComputeService.Instances.Get(s.GcpConfig.ProjectID, s.GcpConfig.Zone, dat.hostName).Do()
 	if err != nil {
-		return nil, fail.ToError(err)
+		return nil, normalizeError(err)
 	}
 
 	favoriteSlave := dat.diskName
@@ -331,18 +331,18 @@ func (s *Stack) DeleteVolumeAttachment(serverID, vaID string) fail.Error {
 
 	gcpInstance, err := s.ComputeService.Instances.Get(s.GcpConfig.ProjectID, s.GcpConfig.Zone, serverID).Do()
 	if err != nil {
-		return fail.ToError(err)
+		return normalizeError(err)
 	}
 
 	diskName := newGcpDiskAttachmentFromID(vaID).diskName
 	gcpDisk, err := s.ComputeService.Disks.Get(s.GcpConfig.ProjectID, s.GcpConfig.Zone, diskName).Do()
 	if err != nil {
-		return fail.ToError(err)
+		return normalizeError(err)
 	}
 
 	op, err := s.ComputeService.Instances.DetachDisk(s.GcpConfig.ProjectID, s.GcpConfig.Zone, gcpInstance.Name, gcpDisk.Name).Do()
 	if err != nil {
-		return fail.ToError(err)
+		return normalizeError(err)
 	}
 
 	oco := OpContext{
@@ -371,7 +371,7 @@ func (s *Stack) ListVolumeAttachments(serverID string) ([]abstract.VolumeAttachm
 
 	gcpInstance, err := s.ComputeService.Instances.Get(s.GcpConfig.ProjectID, s.GcpConfig.Zone, serverID).Do()
 	if err != nil {
-		return nil, fail.ToError(err)
+		return nil, normalizeError(err)
 	}
 
 	for _, disk := range gcpInstance.Disks {

@@ -236,7 +236,7 @@ func (s *Stack) complementHost(hostCore *abstract.HostCore, server *abstract.Hos
 
 	gcpHost, err := s.ComputeService.Instances.Get(s.GcpConfig.ProjectID, s.GcpConfig.Zone, server.Name).Do()
 	if err != nil {
-		return nil, fail.ToError(err)
+		return nil, normalizeError(err)
 	}
 	_ = &compute.Instance{}
 	nullAhf.Core.LastState, err = stateConvert(gcpHost.Status)
@@ -473,7 +473,6 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (_ *abstract.HostFull, 
 				return fail.NewError("failed to create server")
 			}
 
-			// FIXME Add complementHost
 			nullAhf, xerr = s.complementHost(hostCore, server)
 			if xerr != nil {
 				return xerr
@@ -668,7 +667,7 @@ func buildGcpMachine(
 
 	op, err := service.Instances.Insert(projectID, zone, instance).Do()
 	if err != nil {
-		return nil, fail.ToError(err)
+		return nil, normalizeError(err)
 	}
 
 	etag := op.Header.Get("Etag")
@@ -734,7 +733,7 @@ func (s *Stack) InspectHost(hostParam stacks.HostParameter) (host *abstract.Host
 	hostComplete := abstract.NewHostFull()
 	gcpHost, err := s.ComputeService.Instances.Get(s.GcpConfig.ProjectID, s.GcpConfig.Zone, hostRef).Do()
 	if err != nil {
-		return nil, fail.ToError(err)
+		return nil, normalizeError(err)
 	}
 	_ = &compute.Instance{}
 	hostComplete.Core.LastState, err = stateConvert(gcpHost.Status)
@@ -805,9 +804,9 @@ func (s *Stack) InspectHost(hostParam stacks.HostParameter) (host *abstract.Host
 
 	hostComplete.Sizing = fromMachineTypeToAllocatedSize(gcpHost.MachineType)
 
-	// if !hostComplete.OK() {
-	// 	logrus.Warnf("[TRACE] Unexpected host status: %s", spew.Sdump(host))
-	// }
+	if !hostComplete.OK() {
+		logrus.Warnf("[TRACE] Unexpected host status: %s", spew.Sdump(host))
+	}
 
 	return hostComplete, nil
 }
@@ -884,6 +883,9 @@ func (s *Stack) DeleteHost(hostParam stacks.HostParameter) (xerr fail.Error) {
 	if s == nil {
 		return fail.InvalidInstanceError()
 	}
+
+	logrus.Warnf("Reached delete invocation...")
+
 	ahf, hostRef, xerr := stacks.ValidateHostParameter(hostParam)
 	if xerr != nil {
 		return xerr
@@ -900,7 +902,7 @@ func (s *Stack) DeleteHost(hostParam stacks.HostParameter) (xerr fail.Error) {
 
 	_, err := service.Instances.Get(projectID, zone, ahf.Core.ID).Do()
 	if err != nil {
-		return fail.ToError(err)
+		return normalizeError(err)
 	}
 
 	op, err := service.Instances.Delete(projectID, zone, ahf.Core.ID).Do()
@@ -916,7 +918,9 @@ func (s *Stack) DeleteHost(hostParam stacks.HostParameter) (xerr fail.Error) {
 	}
 
 	xerr = waitUntilOperationIsSuccessfulOrTimeout(oco, temporal.GetMinDelay(), temporal.GetHostCleanupTimeout())
-	// TODO: handle xerr value
+	if xerr != nil {
+		return xerr
+	}
 
 	waitErr := retry.WhileUnsuccessfulDelay5Seconds(
 		func() error {
@@ -1006,7 +1010,7 @@ func (s *Stack) StopHost(hostParam stacks.HostParameter) fail.Error {
 
 	op, err := service.Instances.Stop(s.GcpConfig.ProjectID, s.GcpConfig.Zone, ahf.Core.ID).Do()
 	if err != nil {
-		return fail.ToError(err)
+		return normalizeError(err)
 	}
 
 	oco := OpContext{
@@ -1070,7 +1074,7 @@ func (s *Stack) RebootHost(hostParam stacks.HostParameter) fail.Error {
 
 	op, err := service.Instances.Stop(s.GcpConfig.ProjectID, s.GcpConfig.Zone, ahf.GetID()).Do()
 	if err != nil {
-		return fail.ToError(err)
+		return normalizeError(err)
 	}
 
 	oco := OpContext{
@@ -1128,7 +1132,7 @@ func (s *Stack) ListAvailabilityZones() (_ map[string]bool, xerr fail.Error) {
 
 	resp, err := s.ComputeService.Zones.List(s.GcpConfig.ProjectID).Do()
 	if err != nil {
-		return zones, fail.ToError(err)
+		return zones, normalizeError(err)
 	}
 	for _, region := range resp.Items {
 		zones[region.Name] = region.Status == "UP"

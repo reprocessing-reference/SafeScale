@@ -307,7 +307,13 @@ func (handler *hostHandler) Delete(ref string) (xerr fail.Error) {
 	if xerr != nil {
 		return xerr
 	}
-	return objh.Delete(task)
+
+	xerr = objh.Delete(task)
+	if xerr != nil {
+		return xerr
+	}
+
+	return nil
 }
 
 // SSH returns ssh parameters to access the host referenced by ref

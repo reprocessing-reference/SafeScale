@@ -61,17 +61,17 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (*abstract.Network, f
 	} else if err != nil {
 		if gerr, ok := err.(*googleapi.Error); ok {
 			if gerr.Code != 404 {
-				return nil, fail.ToError(err)
+				return nil, normalizeError(err)
 			}
 		} else {
-			return nil, fail.ToError(err)
+			return nil, normalizeError(err)
 		}
 	}
 
 	if recreateSafescaleNetwork {
 		opp, err := compuService.Networks.Insert(s.GcpConfig.ProjectID, &ne).Context(context.Background()).Do()
 		if err != nil {
-			return nil, fail.ToError(err)
+			return nil, normalizeError(err)
 		}
 
 		oco := OpContext{
@@ -89,7 +89,7 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (*abstract.Network, f
 
 	necreated, err := compuService.Networks.Get(s.GcpConfig.ProjectID, ne.Name).Do()
 	if err != nil {
-		return nil, fail.ToError(err)
+		return nil, normalizeError(err)
 	}
 
 	net := abstract.NewNetwork()
@@ -116,7 +116,7 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (*abstract.Network, f
 
 	opp, err := compuService.Subnetworks.Insert(s.GcpConfig.ProjectID, theRegion, &subnetReq).Context(context.Background()).Do()
 	if err != nil {
-		return nil, fail.ToError(err)
+		return nil, normalizeError(err)
 	}
 
 	oco := OpContext{
@@ -128,12 +128,12 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (*abstract.Network, f
 
 	err = waitUntilOperationIsSuccessfulOrTimeout(oco, temporal.GetMinDelay(), 2*temporal.GetContextTimeout())
 	if err != nil {
-		return nil, fail.ToError(err)
+		return nil, normalizeError(err)
 	}
 
 	gcpSubNet, err := compuService.Subnetworks.Get(s.GcpConfig.ProjectID, theRegion, req.Name).Do()
 	if err != nil {
-		return nil, fail.ToError(err)
+		return nil, normalizeError(err)
 	}
 
 	// FIXME: Add properties and GatewayID
@@ -152,10 +152,10 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (*abstract.Network, f
 	} else if err != nil {
 		if gerr, ok := err.(*googleapi.Error); ok {
 			if gerr.Code != 404 {
-				return nil, fail.ToError(err)
+				return nil, normalizeError(err)
 			}
 		} else {
-			return nil, fail.ToError(err)
+			return nil, normalizeError(err)
 		}
 	}
 
@@ -176,7 +176,7 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (*abstract.Network, f
 
 		opp, err = compuService.Firewalls.Insert(s.GcpConfig.ProjectID, &fiw).Do()
 		if err != nil {
-			return nil, fail.ToError(err)
+			return nil, normalizeError(err)
 		}
 		oco = OpContext{
 			Operation:    opp,
@@ -200,10 +200,10 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (*abstract.Network, f
 	} else if err != nil {
 		if gerr, ok := err.(*googleapi.Error); ok {
 			if gerr.Code != 404 {
-				return nil, fail.ToError(err)
+				return nil, normalizeError(err)
 			}
 		} else {
-			return nil, fail.ToError(err)
+			return nil, normalizeError(err)
 		}
 	}
 
@@ -218,7 +218,7 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (*abstract.Network, f
 		}
 		opp, err := compuService.Routes.Insert(s.GcpConfig.ProjectID, route).Do()
 		if err != nil {
-			return nil, fail.ToError(err)
+			return nil, normalizeError(err)
 		}
 		oco = OpContext{
 			Operation:    opp,
@@ -363,12 +363,12 @@ func (s *Stack) DeleteNetwork(ref string) (xerr fail.Error) {
 	compuService := s.ComputeService
 	subnetwork, err := compuService.Subnetworks.Get(s.GcpConfig.ProjectID, s.GcpConfig.Region, theNetwork.Name).Do()
 	if err != nil {
-		return fail.ToError(err)
+		return normalizeError(err)
 	}
 
 	opp, err := compuService.Subnetworks.Delete(s.GcpConfig.ProjectID, s.GcpConfig.Region, subnetwork.Name).Do()
 	if err != nil {
-		return fail.ToError(err)
+		return normalizeError(err)
 	}
 
 	oco := OpContext{
@@ -394,7 +394,7 @@ func (s *Stack) DeleteNetwork(ref string) (xerr fail.Error) {
 	fws, err := compuService.Firewalls.Get(s.GcpConfig.ProjectID, firewallRuleName).Do()
 	if err != nil {
 		logrus.Warn(err)
-		return fail.ToError(err)
+		return normalizeError(err)
 	}
 
 	if fws != nil {
@@ -410,10 +410,10 @@ func (s *Stack) DeleteNetwork(ref string) (xerr fail.Error) {
 			operr = waitUntilOperationIsSuccessfulOrTimeout(oco, temporal.GetMinDelay(), temporal.GetHostCleanupTimeout())
 			if operr != nil {
 				logrus.Warn(operr)
-				return fail.ToError(operr)
+				return normalizeError(operr)
 			}
 		} else {
-			return fail.ToError(operr)
+			return normalizeError(operr)
 		}
 	}
 
@@ -421,7 +421,7 @@ func (s *Stack) DeleteNetwork(ref string) (xerr fail.Error) {
 	nws, err := compuService.Routes.Get(s.GcpConfig.ProjectID, natRuleName).Do()
 	if err != nil {
 		logrus.Warn(err)
-		return fail.ToError(err)
+		return normalizeError(err)
 	}
 
 	if nws != nil {
@@ -437,10 +437,10 @@ func (s *Stack) DeleteNetwork(ref string) (xerr fail.Error) {
 			operr = waitUntilOperationIsSuccessfulOrTimeout(oco, temporal.GetMinDelay(), temporal.GetHostCleanupTimeout())
 			if operr != nil {
 				logrus.Warn(operr)
-				return fail.ToError(operr)
+				return normalizeError(operr)
 			}
 		} else {
-			return fail.ToError(operr)
+			return normalizeError(operr)
 		}
 	}
 

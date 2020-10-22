@@ -51,7 +51,7 @@ func RefreshResult(oco OpContext) (res Result, xerr fail.Error) {
 		if oco.Operation.Zone != "" { // nolint
 			zoneURL, ierr := url.Parse(oco.Operation.Zone)
 			if ierr != nil {
-				return res, fail.ToError(ierr)
+				return res, normalizeError(ierr)
 			}
 			zone := getResourceNameFromSelfLink(*zoneURL)
 			oco.Operation, err = oco.Service.ZoneOperations.Get(oco.ProjectID, zone, oco.Operation.Name).Do()
@@ -70,7 +70,7 @@ func RefreshResult(oco OpContext) (res Result, xerr fail.Error) {
 			if err == nil {
 				return res, fail.NewError("no operation")
 			}
-			return res, fail.ToError(err)
+			return res, normalizeError(err)
 		}
 
 		res.State = oco.Operation.Status
@@ -95,7 +95,7 @@ func waitUntilOperationIsSuccessfulOrTimeout(oco OpContext, poll time.Duration, 
 		return nil
 	}, poll, duration)
 
-	return fail.ToError(retryErr)
+	return normalizeError(retryErr)
 }
 
 // SelfLink ...
