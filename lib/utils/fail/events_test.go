@@ -40,11 +40,14 @@ func doPanic() {
 func liveDangerously(panicflag bool) (err error) {
 	defer OnPanic(&err)
 
+	var ko error
+	ko = nil
+
 	if panicflag {
 		doPanic()
 	}
 
-	return nil
+	return ko
 }
 
 func TestLogErrorWithPanic(t *testing.T) {

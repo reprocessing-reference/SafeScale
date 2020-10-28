@@ -52,6 +52,16 @@ func TestInterfaceMatching(t *testing.T) {
 
 	{
 		val := NewErrorList(nil)
+		if _, ok := interface{}(val).(Error); ok {
+			logrus.Fatal("*errorList doesn't satisfy interface Error")
+		}
+		if _, ok := interface{}(val).(error); ok {
+			logrus.Fatal("*errorList doesn't satisfy interface error")
+		}
+
+		var errs []error
+		errs = append(errs, fmt.Errorf("whatever"))
+		val = NewErrorList(errs)
 		if _, ok := interface{}(val).(Error); !ok {
 			logrus.Fatal("*errorList doesn't satisfy interface Error")
 		}
@@ -402,7 +412,7 @@ func TestNotUncategorizedError(t *testing.T) {
 }
 
 func sender() error {
-	return NewError("what", NewError("something else", nil))
+	return Errorf(Errorf(nil, "caused by something else"), "what")
 }
 
 func specialSender() error {
@@ -413,7 +423,7 @@ func TestRecognizeErrCore(t *testing.T) {
 	err := sender()
 	if eb, ok := err.(causer); ok {
 		require.True(t, strings.Contains(err.Error(), "caused by"))
-		require.False(t, strings.Contains(eb.CauseError(), "caused by"))
+		require.True(t, strings.Contains(eb.CauseError(), "caused by"))
 	} else {
 		t.Fail()
 	}
