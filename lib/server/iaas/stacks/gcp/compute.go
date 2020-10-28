@@ -925,11 +925,16 @@ func (s *Stack) DeleteHost(hostParam stacks.HostParameter) (xerr fail.Error) {
 	waitErr := retry.WhileUnsuccessfulDelay5Seconds(
 		func() error {
 			_, recErr := service.Instances.Get(projectID, zone, ahf.Core.ID).Do()
-			if gerr, ok := recErr.(*googleapi.Error); ok {
+			if gerr, ok := recErr.(*googleapi.Error); ok { // FIXME: remove this code later
 				if gerr.Code == 404 {
 					return nil
 				}
 			}
+
+			if _, ok := recErr.(*fail.ErrNotFound); ok {
+				return nil
+			}
+
 			return fail.Wrap(recErr, "error waiting for host '%s' to disappear", hostRef)
 		},
 		temporal.GetContextTimeout(),
