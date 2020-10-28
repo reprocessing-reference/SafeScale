@@ -230,9 +230,9 @@ func (x *JSONProperties) Serialize(task concurrency.Task) ([]byte, fail.Error) {
 
 	var mapped = map[string]string{}
 	for k, v := range x.Properties {
-		ser, err := v.(*jsonProperty).Serialize(task)
-		if err != nil {
-			return nil, err
+		ser, ferr := v.(*jsonProperty).Serialize(task)
+		if ferr != nil {
+			return nil, ferr
 		}
 		mapped[k] = string(ser)
 	}
