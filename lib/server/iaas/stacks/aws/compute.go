@@ -69,7 +69,7 @@ func (s *Stack) CreateKeyPair(name string) (_ *abstract.KeyPair, xerr fail.Error
 		return nil, xerr
 	}
 	_, err := s.EC2Service.ImportKeyPair(&ec2.ImportKeyPairInput{
-		KeyName:           aws.String(name),
+		KeyName:           aws.String(keypair.Name),
 		PublicKeyMaterial: []byte(keypair.PublicKey),
 	})
 	if err != nil {
@@ -120,7 +120,7 @@ func (s *Stack) InspectKeyPair(id string) (_ *abstract.KeyPair, xerr fail.Error)
 		KeyNames: []*string{aws.String(id)},
 	})
 	if err != nil {
-		return nil, fail.Wrap(normalizeError(err), "failed to get keypair '%s'", id)
+		return nil, normalizeErrorWithMsg(err, "failed to get keypair '%s'", id)
 	}
 	if len(out.KeyPairs) == 0 {
 		return nil, fail.NotFoundError("failed to find keypair '%s'", id)
@@ -350,12 +350,11 @@ func createFilters() []*ec2.Filter {
 		aws.String("099720109477"), // Ubuntu
 		aws.String("013116697141"), // Fedora
 		aws.String("379101102735"), // Debian
+		aws.String("125523088429"), // CentOS 8
 		aws.String("161831738826"), // Centos 7 with ENA
 		aws.String("057448758665"), // Centos 7
 		aws.String("679593333241"), // Centos 6 AND Others
 		aws.String("595879546273"), // CoreOS
-		aws.String("902460189751"), // Gentoo
-		aws.String("341857463381"), // Gentoo
 	}
 	filters = append(filters, &ec2.Filter{
 		Name:   aws.String("owner-id"),
@@ -480,11 +479,14 @@ func (s *Stack) WaitHostReady(hostParam stacks.HostParameter, timeout time.Durat
 		return nullAhc, fail.InvalidInstanceError()
 	}
 	ahf, hostRef, xerr := stacks.ValidateHostParameter(hostParam)
+	hostRef = cleanHostRef(hostRef)
 	if xerr != nil {
 		return nullAhc, xerr
 	}
 
-	defer debug.NewTracer(nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.compute"), "(%s, %v)", hostRef, timeout).WithStopwatch().Entering().Exiting()
+	defer debug.NewTracer(
+		nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.compute"), "(%s, %v)", hostRef, timeout,
+	).WithStopwatch().Entering().Exiting()
 	defer fail.OnPanic(&xerr)
 	defer fail.OnExitLogError(&xerr)
 
@@ -492,20 +494,23 @@ func (s *Stack) WaitHostReady(hostParam stacks.HostParameter, timeout time.Durat
 		func() error {
 			hostTmp, innerXErr := s.InspectHost(ahf)
 			if innerXErr != nil {
-				logrus.Warn(innerXErr)
+				logrus.Warn(innerXErr) // FIXME: Remove this log
 				return innerXErr
 			}
 
 			ahf = hostTmp
 
-			if hostTmp.CurrentState == hoststate.ERROR {
-				innerXErr = retry.StopRetryError(fail.NewError(nil, "last state: %s", hostTmp.CurrentState), "error waiting for host in ready state")
+			if hostTmp.Core.LastState == hoststate.ERROR {
+				innerXErr = retry.StopRetryError(
+					fail.NewError(nil, "last state: %s", hostTmp.Core.LastState),
+					"error waiting for host in ready state",
+				)
 				logrus.Warn(innerXErr)
 				return innerXErr
 			}
 
-			if hostTmp.CurrentState != hoststate.STARTED {
-				innerXErr = fail.NewError(nil, "not in ready state (current state: %s)", ahf.CurrentState.String())
+			if hostTmp.Core.LastState != hoststate.STARTED {
+				innerXErr = fail.NewError(nil, "not in ready state (current state: %s)", ahf.Core.LastState.String())
 				logrus.Warn(innerXErr)
 				return innerXErr
 			}
@@ -519,7 +524,10 @@ func (s *Stack) WaitHostReady(hostParam stacks.HostParameter, timeout time.Durat
 		case *retry.ErrStopRetry:
 			return nullAhc, fail.ToError(retryErr.Cause())
 		case *retry.ErrTimeout:
-			return nullAhc, fail.Wrap(retryErr.Cause(), "timeout waiting to get host '%s' information after %v", ahf.GetID(), timeout)
+			return nullAhc, normalizeErrorWithMsg(
+				retryErr.Cause(), "timeout waiting to get host '%s' information after %v", ahf.GetID(),
+				timeout.String(),
+			)
 		default:
 			return nullAhc, retryErr
 		}
@@ -555,7 +563,7 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 	if request.Password == "" {
 		password, err := utils.GeneratePassword(16)
 		if err != nil {
-			return nullAhf, nullUdc, fail.Wrap(err, "failed to generate password")
+			return nullAhf, nullUdc, normalizeErrorWithMsg(err, "failed to generate password")
 		}
 		request.Password = password
 	}
@@ -611,18 +619,18 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 	xerr = userData.Prepare(*s.Config, request, defaultNetwork.CIDR, "")
 	if xerr != nil {
 		logrus.Debugf(strprocess.Capitalize(fmt.Sprintf("failed to prepare user data content: %+v", xerr)))
-		return nullAhf, nullUdc, fail.Wrap(xerr, "failed to prepare user data content")
+		return nullAhf, nullUdc, normalizeErrorWithMsg(xerr, "failed to prepare user data content")
 	}
 
 	// Determine system disk size based on vcpus count
 	template, xerr := s.InspectTemplate(request.TemplateID)
 	if xerr != nil {
-		return nullAhf, nullUdc, fail.Wrap(xerr, "failed to get host template '%s'", request.TemplateID)
+		return nullAhf, nullUdc, normalizeErrorWithMsg(xerr, "failed to get host template '%s'", request.TemplateID)
 	}
 
 	rim, err := s.InspectImage(request.ImageID)
 	if err != nil {
-		return nullAhf, nullUdc, fail.Wrap(xerr, "failed to get image '%s'", request.ImageID)
+		return nullAhf, nullUdc, normalizeErrorWithMsg(xerr, "failed to get image '%s'", request.ImageID)
 	}
 
 	logrus.Debugf("Selected template: '%s', '%s'", template.ID, template.Name)
@@ -655,13 +663,13 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 	ahf.Sizing = converters.HostTemplateToHostEffectiveSizing(*template)
 
 	// Sets provider parameters to create ahf
-	userDataPhase1, xerr := userData.Generate("phase1")
-	if err != nil {
+	userDataPhase1, xerr := userData.Generate(userdata.PHASE1_INIT)
+	if xerr != nil {
 		return nullAhf, nullUdc, xerr
 	}
 
 	vpcnet, xerr := s.InspectNetworkByName(s.AwsConfig.NetworkName)
-	if err != nil {
+	if xerr != nil {
 		return nullAhf, nullUdc, xerr
 	}
 
@@ -727,7 +735,7 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 				if server != nil {
 					killErr := s.DeleteHost(server.ID)
 					if killErr != nil {
-						return fail.Wrap(err, killErr.Error())
+						return normalizeErrorWithMsg(err, killErr.Error())
 					}
 				}
 
@@ -751,7 +759,7 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 			if err != nil {
 				killErr := s.DeleteHost(ahf.Core.ID)
 				if killErr != nil {
-					return fail.Wrap(err, killErr.Error())
+					return normalizeErrorWithMsg(err, killErr.Error())
 				}
 				return err
 			}
@@ -760,8 +768,8 @@ func (s *Stack) CreateHost(request abstract.HostRequest) (ahf *abstract.HostFull
 		},
 		temporal.GetLongOperationTimeout(),
 	)
-	if err != nil {
-		return nullAhf, nullUdc, fail.Wrap(err, "Error creating ahf: timeout")
+	if xerr != nil {
+		return nullAhf, nullUdc, normalizeErrorWithMsg(xerr, "Error creating ahf: timeout")
 	}
 	if desistError != nil {
 		return nullAhf, nullUdc, fail.ForbiddenError(fmt.Sprintf("Error creating ahf: %s", desistError.Error()))
@@ -869,12 +877,12 @@ func createSecurityGroup(EC2Service *ec2.EC2, vpcID string, name string) error {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case "InvalidVpcID.NotFound":
-				return fail.Wrap(err, "unable to find VPC with ID %q", vpcID)
+				return normalizeErrorWithMsg(err, "unable to find VPC with ID %q", vpcID)
 			case "InvalidGroup.Duplicate":
-				return fail.Wrap(err, "security group %q already exists", name)
+				return normalizeErrorWithMsg(err, "security group %q already exists", name)
 			}
 		}
-		return fail.Wrap(err, "unable to create security group %q", name)
+		return normalizeErrorWithMsg(err, "unable to create security group %q", name)
 	}
 	fmt.Printf("Created security group %s with VPC %s.\n",
 		aws.StringValue(createRes.GroupId), vpcID)
@@ -933,7 +941,7 @@ func createSecurityGroup(EC2Service *ec2.EC2, vpcID string, name string) error {
 		IpPermissions: permissions,
 	})
 	if err != nil {
-		return fail.Wrap(err, "unable to set security group %q ingress", name)
+		return normalizeErrorWithMsg(err, "unable to set security group %q ingress", name)
 	}
 
 	return nil
@@ -1082,6 +1090,14 @@ func buildAwsMachine(
 	return &hostCore, nil
 }
 
+func cleanHostRef(ref string) string {
+	if strings.HasPrefix(ref, "'") && strings.HasSuffix(ref, "'") {
+		slen := len(ref)
+		return ref[1 : slen-1]
+	}
+	return ref
+}
+
 // InspectHost loads information of a host from AWS
 func (s *Stack) InspectHost(hostParam stacks.HostParameter) (ahf *abstract.HostFull, xerr fail.Error) {
 	ahf = abstract.NewHostFull()
@@ -1091,6 +1107,8 @@ func (s *Stack) InspectHost(hostParam stacks.HostParameter) (ahf *abstract.HostF
 
 	var hostRef string
 	ahf, hostRef, xerr = stacks.ValidateHostParameter(hostParam)
+	hostRef = cleanHostRef(hostRef)
+
 	if xerr != nil {
 		return ahf, xerr
 	}
@@ -1098,38 +1116,46 @@ func (s *Stack) InspectHost(hostParam stacks.HostParameter) (ahf *abstract.HostF
 		return nil, abstract.ResourceNotFoundError("host", hostRef)
 	}
 
-	defer debug.NewTracer(nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.compute"), "(%s)", hostRef).WithStopwatch().Entering().Exiting()
+	defer debug.NewTracer(
+		nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.compute"), "(%s)", hostRef,
+	).WithStopwatch().Entering().Exiting()
 	defer fail.OnPanic(&xerr)
 	defer fail.OnExitLogError(&xerr)
 
-	awsHost, err := s.EC2Service.DescribeInstances(&ec2.DescribeInstancesInput{
-		Filters: []*ec2.Filter{
-			{
-				Name:   aws.String("instance-id"),
-				Values: []*string{aws.String(hostRef)},
+	awsHost, err := s.EC2Service.DescribeInstances(
+		&ec2.DescribeInstancesInput{
+			Filters: []*ec2.Filter{
+				{
+					Name:   aws.String("instance-id"),
+					Values: []*string{aws.String(hostRef)},
+				},
 			},
-		},
-	})
+		})
 	if err != nil {
 		return nil, fail.ToError(err)
 	}
 
 	if len(awsHost.Reservations) == 0 {
-		awsHost, err = s.EC2Service.DescribeInstances(&ec2.DescribeInstancesInput{
-			Filters: []*ec2.Filter{
-				{
-					Name: aws.String("tag:Name"),
-					Values: []*string{
-						aws.String(hostRef),
+		awsHost, err = s.EC2Service.DescribeInstances(
+			&ec2.DescribeInstancesInput{
+				Filters: []*ec2.Filter{
+					{
+						Name: aws.String("tag:Name"),
+						Values: []*string{
+							aws.String(hostRef),
+						},
 					},
 				},
 			},
-		})
+		)
 		if err != nil {
 			return nil, fail.ToError(err)
 		}
 	}
 
+	if len(awsHost.Reservations) != 0 {
+		logrus.Warn(spew.Sdump(awsHost.Reservations))
+	}
 	if len(awsHost.Reservations) == 0 {
 		return nil, fail.NotFoundError(fmt.Sprintf("host %s not found", hostRef))
 	}
@@ -1365,27 +1391,35 @@ func (s *Stack) DeleteHost(hostParam stacks.HostParameter) fail.Error {
 		return fail.InvalidInstanceError()
 	}
 	ahf, hostRef, xerr := stacks.ValidateHostParameter(hostParam)
+	hostRef = cleanHostRef(hostRef)
+
 	if xerr != nil {
 		return xerr
 	}
 
-	defer debug.NewTracer(nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.compute"), "(%s)", hostRef).WithStopwatch().Entering().Exiting()
+	defer debug.NewTracer(
+		nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.compute"), "(%s)", hostRef,
+	).WithStopwatch().Entering().Exiting()
 	defer fail.OnExitLogError(&xerr)
 
-	ips, err := s.EC2Service.DescribeAddresses(&ec2.DescribeAddressesInput{
-		Filters: []*ec2.Filter{
-			{
-				Name:   aws.String("instance-id"),
-				Values: []*string{aws.String(ahf.GetID())},
+	ips, err := s.EC2Service.DescribeAddresses(
+		&ec2.DescribeAddressesInput{
+			Filters: []*ec2.Filter{
+				{
+					Name:   aws.String("instance-id"),
+					Values: []*string{aws.String(ahf.GetID())},
+				},
 			},
 		},
-	})
+	)
 	if err != nil {
 		if ips != nil {
 			for _, ip := range ips.Addresses {
-				_, _ = s.EC2Service.ReleaseAddress(&ec2.ReleaseAddressInput{
-					AllocationId: ip.AllocationId,
-				})
+				_, _ = s.EC2Service.ReleaseAddress(
+					&ec2.ReleaseAddressInput{
+						AllocationId: ip.AllocationId,
+					},
+				)
 			}
 		}
 	}
@@ -1460,7 +1494,10 @@ func (s *Stack) DeleteHost(hostParam stacks.HostParameter) fail.Error {
 	if retryErr != nil {
 		switch retryErr.(type) {
 		case *retry.ErrTimeout:
-			return fail.Wrap(retryErr.Cause(), "timeout waiting to get host '%s' information after %v", ahf.GetID(), temporal.GetHostCleanupTimeout())
+			return normalizeErrorWithMsg(
+				retryErr.Cause(), "timeout waiting to get host '%s' information after %v", ahf.GetID(),
+				temporal.GetHostCleanupTimeout().String(),
+			)
 		default:
 			return retryErr
 		}
@@ -1482,7 +1519,7 @@ func (s *Stack) DeleteHost(hostParam stacks.HostParameter) fail.Error {
 			GroupId: aws.String(secGroupId),
 		})
 		if err != nil {
-			return fail.Wrap(err, "error deleting security group")
+			return normalizeErrorWithMsg(err, "error deleting security group")
 		}
 	} else {
 		logrus.Warnf("security group %s for host '%s' not found", secGroupId, hostRef)
@@ -1494,7 +1531,7 @@ func (s *Stack) DeleteHost(hostParam stacks.HostParameter) fail.Error {
 			KeyName: aws.String(keyPairName),
 		})
 		if err != nil {
-			return fail.Wrap(err, "error deleting keypair")
+			return normalizeErrorWithMsg(err, "error deleting keypair")
 		}
 	} else {
 		logrus.Warnf("keypair '%s' for host '%s' not found", keyPairName, ahf.GetID())
@@ -1509,17 +1546,22 @@ func (s *Stack) StopHost(hostParam stacks.HostParameter) (xerr fail.Error) {
 		return fail.InvalidInstanceError()
 	}
 	ahf, hostRef, xerr := stacks.ValidateHostParameter(hostParam)
+	hostRef = cleanHostRef(hostRef)
 	if xerr != nil {
 		return xerr
 	}
 
-	defer debug.NewTracer(nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.compute"), "(%s)", hostRef).WithStopwatch().Entering().Exiting()
+	defer debug.NewTracer(
+		nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.compute"), "(%s)", hostRef,
+	).WithStopwatch().Entering().Exiting()
 	defer fail.OnExitLogError(&xerr)
 
-	_, err := s.EC2Service.StopInstances(&ec2.StopInstancesInput{
-		Force:       aws.Bool(true),
-		InstanceIds: []*string{aws.String(ahf.Core.ID)},
-	})
+	_, err := s.EC2Service.StopInstances(
+		&ec2.StopInstancesInput{
+			Force:       aws.Bool(true),
+			InstanceIds: []*string{aws.String(ahf.Core.ID)},
+		},
+	)
 	if err != nil {
 		return fail.ToError(err)
 	}
@@ -1542,7 +1584,10 @@ func (s *Stack) StopHost(hostParam stacks.HostParameter) (xerr fail.Error) {
 	if retryErr != nil {
 		switch retryErr.(type) {
 		case *retry.ErrTimeout:
-			return fail.Wrap(retryErr.Cause(), "timeout waiting to get host '%s' information after %v", hostRef, temporal.GetHostCleanupTimeout())
+			return normalizeErrorWithMsg(
+				retryErr.Cause(), "timeout waiting to get host '%s' information after %v", hostRef,
+				temporal.GetHostCleanupTimeout().String(),
+			)
 		}
 		return retryErr
 	}
@@ -1556,16 +1601,21 @@ func (s *Stack) StartHost(hostParam stacks.HostParameter) (xerr fail.Error) {
 		return fail.InvalidInstanceError()
 	}
 	ahf, hostRef, xerr := stacks.ValidateHostParameter(hostParam)
+	hostRef = cleanHostRef(hostRef)
 	if xerr != nil {
 		return xerr
 	}
 
-	defer debug.NewTracer(nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.compute"), "(%s)", hostRef).WithStopwatch().Entering().Exiting()
+	defer debug.NewTracer(
+		nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.compute"), "(%s)", hostRef,
+	).WithStopwatch().Entering().Exiting()
 	defer fail.OnExitLogError(&xerr)
 
-	_, err := s.EC2Service.StartInstances(&ec2.StartInstancesInput{
-		InstanceIds: []*string{aws.String(ahf.Core.ID)},
-	})
+	_, err := s.EC2Service.StartInstances(
+		&ec2.StartInstancesInput{
+			InstanceIds: []*string{aws.String(ahf.Core.ID)},
+		},
+	)
 	if err != nil {
 		return normalizeError(err)
 	}
@@ -1588,7 +1638,10 @@ func (s *Stack) StartHost(hostParam stacks.HostParameter) (xerr fail.Error) {
 	if retryErr != nil {
 		switch retryErr.(type) {
 		case *retry.ErrTimeout:
-			return fail.Wrap(retryErr.Cause(), "timeout waiting to get information of host '%s' after %v", hostRef, temporal.GetHostCleanupTimeout())
+			return normalizeErrorWithMsg(
+				retryErr.Cause(), "timeout waiting to get information of host '%s' after %v", hostRef,
+				temporal.GetHostCleanupTimeout().String(),
+			)
 		default:
 			return retryErr
 		}
@@ -1603,16 +1656,21 @@ func (s *Stack) RebootHost(hostParam stacks.HostParameter) (xerr fail.Error) {
 		return fail.InvalidInstanceError()
 	}
 	ahf, hostRef, xerr := stacks.ValidateHostParameter(hostParam)
+	hostRef = cleanHostRef(hostRef)
 	if xerr != nil {
 		return xerr
 	}
 
-	defer debug.NewTracer(nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.compute"), "(%s)", hostRef).WithStopwatch().Entering().Exiting()
+	defer debug.NewTracer(
+		nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.compute"), "(%s)", hostRef,
+	).WithStopwatch().Entering().Exiting()
 	defer fail.OnExitLogError(&xerr)
 
-	_, err := s.EC2Service.RebootInstances(&ec2.RebootInstancesInput{
-		InstanceIds: []*string{aws.String(ahf.Core.ID)},
-	})
+	_, err := s.EC2Service.RebootInstances(
+		&ec2.RebootInstancesInput{
+			InstanceIds: []*string{aws.String(ahf.Core.ID)},
+		},
+	)
 	if err != nil {
 		return normalizeError(err)
 	}

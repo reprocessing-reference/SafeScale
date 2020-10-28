@@ -17,9 +17,10 @@
 package aws
 
 import (
-	"github.com/CS-SI/SafeScale/lib/server/iaas/stacks"
 	"net"
 	"reflect"
+
+	"github.com/CS-SI/SafeScale/lib/server/iaas/stacks"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
@@ -68,7 +69,9 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (res *abstract.Networ
 		return nil, fail.InvalidInstanceError()
 	}
 
-	defer debug.NewTracer(nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.network"), "(%v)", req).WithStopwatch().Entering().Exiting()
+	defer debug.NewTracer(
+		nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.network"), "(%v)", req,
+	).WithStopwatch().Entering().Exiting()
 	defer fail.OnExitLogError(&xerr)
 
 	var theVpc *ec2.Vpc
@@ -92,19 +95,24 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (res *abstract.Networ
 			}
 		}
 		if theVpc != nil {
+			logrus.Debugf("selected VPC: %s", aws.StringValue(theVpc.VpcId))
 			break
 		}
 	}
 
 	// if not, create the network
+	created := false
 	if theVpc == nil {
-		vpcOut, err := s.EC2Service.CreateVpc(&ec2.CreateVpcInput{
-			CidrBlock: aws.String(req.CIDR),
-		})
+		vpcOut, err := s.EC2Service.CreateVpc(
+			&ec2.CreateVpcInput{
+				CidrBlock: aws.String(req.CIDR),
+			},
+		)
 		if err != nil {
-			return nil, fail.Wrap(normalizeError(err), "failed to create VPC")
+			return nil, normalizeErrorWithMsg(normalizeError(err), "failed to create VPC")
 		}
 
+		created = true
 		theVpc = vpcOut.Vpc
 	}
 
@@ -112,9 +120,11 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (res *abstract.Networ
 	if IsOperation(theVpc, "State", reflect.TypeOf("")) {
 		retryErr := retry.WhileUnsuccessful(
 			func() error {
-				vpcTmp, err := s.EC2Service.DescribeVpcs(&ec2.DescribeVpcsInput{
-					VpcIds: []*string{theVpc.VpcId},
-				})
+				vpcTmp, err := s.EC2Service.DescribeVpcs(
+					&ec2.DescribeVpcsInput{
+						VpcIds: []*string{theVpc.VpcId},
+					},
+				)
 				if err != nil {
 					return normalizeError(err)
 				}
@@ -129,18 +139,21 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (res *abstract.Networ
 		if retryErr != nil {
 			return nil, retryErr
 		}
+		logrus.Debugf("Vpc %s ready", aws.StringValue(theVpc.VpcId))
 	}
 
 	// resource tagging
-	_, err = s.EC2Service.CreateTags(&ec2.CreateTagsInput{
-		Resources: []*string{theVpc.VpcId},
-		Tags: []*ec2.Tag{
-			{
-				Key:   aws.String("Name"),
-				Value: aws.String(s.AwsConfig.NetworkName),
+	_, err = s.EC2Service.CreateTags(
+		&ec2.CreateTagsInput{
+			Resources: []*string{theVpc.VpcId},
+			Tags: []*ec2.Tag{
+				{
+					Key:   aws.String("Name"),
+					Value: aws.String(s.AwsConfig.NetworkName),
+				},
 			},
 		},
-	})
+	)
 	if err != nil {
 		logrus.Warnf("error creating tags: %v", err)
 	}
@@ -148,9 +161,11 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (res *abstract.Networ
 	defer func() {
 		if xerr != nil {
 			if theVpc != nil {
-				derr := s.DeleteNetwork(aws.StringValue(theVpc.VpcId))
-				if derr != nil {
-					_ = xerr.AddConsequence(derr)
+				if created {
+					derr := s.DeleteNetwork(aws.StringValue(theVpc.VpcId))
+					if derr != nil {
+						_ = xerr.AddConsequence(derr)
+					}
 				}
 			}
 		}
@@ -159,7 +174,7 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (res *abstract.Networ
 	// FIXME: Create private and public subnets here...
 	_, parentNet, err := net.ParseCIDR(req.CIDR)
 	if err != nil {
-		return nil, fail.Wrap(err, "error parsing requested CIDR")
+		return nil, normalizeErrorWithMsg(err, "error parsing requested CIDR")
 	}
 
 	var subnets []*net.IPNet
@@ -170,14 +185,14 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (res *abstract.Networ
 		// publicSubnetCidr, err := cidr.Subnet(parentNet, 1, 0)
 		publicSubnetCidr, xerr := netutil.NthIncludedSubnet(*parentNet, 1, 0)
 		if xerr != nil {
-			return nil, fail.Wrap(xerr, "error preparing a public subnet")
+			return nil, normalizeErrorWithMsg(xerr, "error preparing a public subnet")
 		}
 		subnets = append(subnets, &publicSubnetCidr)
 
 		// privateSubnetCidr, err := cidr.Subnet(parentNet, 1, 1)
 		privateSubnetCidr, xerr := netutil.NthIncludedSubnet(*parentNet, 1, 1)
 		if xerr != nil {
-			return nil, fail.Wrap(xerr, "error preparing a private subnet")
+			return nil, normalizeErrorWithMsg(xerr, "error preparing a private subnet")
 		}
 		subnets = append(subnets, &privateSubnetCidr)
 	} else {
@@ -188,9 +203,11 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (res *abstract.Networ
 	defer func() {
 		if xerr != nil {
 			for _, snet := range subnetsResult {
-				_, derr := s.EC2Service.DeleteSubnet(&ec2.DeleteSubnetInput{
-					SubnetId: snet.Subnet.SubnetId,
-				})
+				_, derr := s.EC2Service.DeleteSubnet(
+					&ec2.DeleteSubnetInput{
+						SubnetId: snet.Subnet.SubnetId,
+					},
+				)
 				if derr != nil {
 					_ = xerr.AddConsequence(normalizeError(derr))
 				}
@@ -198,14 +215,18 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (res *abstract.Networ
 		}
 	}()
 
+	logrus.Debugf("creating subnetworks: %s", spew.Sdump(subnets))
+
 	for _, snCidr := range subnets {
-		sn, err := s.EC2Service.CreateSubnet(&ec2.CreateSubnetInput{
-			CidrBlock:        aws.String(snCidr.String()),
-			VpcId:            theVpc.VpcId,
-			AvailabilityZone: aws.String(s.AwsConfig.Zone),
-		})
+		sn, err := s.EC2Service.CreateSubnet(
+			&ec2.CreateSubnetInput{
+				CidrBlock:        aws.String(snCidr.String()),
+				VpcId:            theVpc.VpcId,
+				AvailabilityZone: aws.String(s.AwsConfig.Zone),
+			},
+		)
 		if err != nil {
-			return nil, fail.Wrap(normalizeError(err), "error creating a subnet")
+			return nil, normalizeErrorWithMsg(err, "error creating a subnet")
 		}
 
 		subnetsResult = append(subnetsResult, sn)
@@ -220,15 +241,17 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (res *abstract.Networ
 		subnetIds = append(subnetIds, snid.Subnet.SubnetId)
 	}
 
-	_, err = s.EC2Service.CreateTags(&ec2.CreateTagsInput{
-		Resources: subnetIds,
-		Tags: []*ec2.Tag{
-			{
-				Key:   aws.String("Name"),
-				Value: aws.String(req.Name),
+	_, err = s.EC2Service.CreateTags(
+		&ec2.CreateTagsInput{
+			Resources: subnetIds,
+			Tags: []*ec2.Tag{
+				{
+					Key:   aws.String("Name"),
+					Value: aws.String(req.Name),
+				},
 			},
 		},
-	})
+	)
 	if err != nil {
 		logrus.Warn("Error creating tags")
 	}
@@ -237,9 +260,11 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (res *abstract.Networ
 		if IsOperation(sn.Subnet, "State", reflect.TypeOf("")) {
 			retryErr := retry.WhileUnsuccessful(
 				func() error {
-					snTmp, err := s.EC2Service.DescribeSubnets(&ec2.DescribeSubnetsInput{
-						SubnetIds: []*string{sn.Subnet.SubnetId},
-					})
+					snTmp, err := s.EC2Service.DescribeSubnets(
+						&ec2.DescribeSubnetsInput{
+							SubnetIds: []*string{sn.Subnet.SubnetId},
+						},
+					)
 					if err != nil {
 						return normalizeError(err)
 					}
@@ -257,7 +282,7 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (res *abstract.Networ
 			if retryErr != nil {
 				switch retryErr.(type) {
 				case *fail.ErrTimeout:
-					return nil, fail.Wrap(retryErr.Cause(), "timeout")
+					return nil, normalizeErrorWithMsg(retryErr.Cause(), "timeout")
 				default:
 					return nil, retryErr
 				}
@@ -267,58 +292,80 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (res *abstract.Networ
 
 	gw, err := s.EC2Service.CreateInternetGateway(&ec2.CreateInternetGatewayInput{})
 	if err != nil {
-		return nil, fail.Wrap(normalizeError(err), "error creating internet gateway")
+		return nil, normalizeErrorWithMsg(err, "error creating internet gateway")
 	}
+	defer func() {
+		if err != nil {
+			_, derr := s.EC2Service.DeleteInternetGateway(
+				&ec2.DeleteInternetGatewayInput{
+					InternetGatewayId: gw.InternetGateway.InternetGatewayId,
+				},
+			)
+			if derr != nil {
+				err = fail.AddConsequence(err, derr)
+			}
+		}
+	}()
 
-	_, err = s.EC2Service.AttachInternetGateway(&ec2.AttachInternetGatewayInput{
-		VpcId:             theVpc.VpcId,
-		InternetGatewayId: gw.InternetGateway.InternetGatewayId,
-	})
+	_, err = s.EC2Service.AttachInternetGateway(
+		&ec2.AttachInternetGatewayInput{
+			VpcId:             theVpc.VpcId,
+			InternetGatewayId: gw.InternetGateway.InternetGatewayId,
+		},
+	)
 	if err != nil {
-		return nil, fail.Wrap(normalizeError(err), "error attaching internet gateway")
+		return nil, normalizeErrorWithMsg(err, "error attaching internet gateway")
 	}
 
 	defer func() {
 		if xerr != nil {
-			_, derr := s.EC2Service.DetachInternetGateway(&ec2.DetachInternetGatewayInput{
-				InternetGatewayId: gw.InternetGateway.InternetGatewayId,
-				VpcId:             theVpc.VpcId,
-			})
+			_, derr := s.EC2Service.DetachInternetGateway(
+				&ec2.DetachInternetGatewayInput{
+					InternetGatewayId: gw.InternetGateway.InternetGatewayId,
+					VpcId:             theVpc.VpcId,
+				},
+			)
 			if derr != nil {
 				_ = xerr.AddConsequence(normalizeError(derr))
 			}
 		}
 	}()
 
-	table, err := s.EC2Service.DescribeRouteTables(&ec2.DescribeRouteTablesInput{
-		Filters: []*ec2.Filter{
-			{
-				Name: aws.String("vpc-id"),
-				Values: []*string{
-					theVpc.VpcId,
+	table, err := s.EC2Service.DescribeRouteTables(
+		&ec2.DescribeRouteTablesInput{
+			Filters: []*ec2.Filter{
+				{
+					Name: aws.String("vpc-id"),
+					Values: []*string{
+						theVpc.VpcId,
+					},
 				},
 			},
 		},
-	})
+	)
 	if err != nil || len(table.RouteTables) < 1 {
-		return nil, fail.Wrap(normalizeError(err), "No RouteTables")
+		return nil, normalizeErrorWithMsg(err, "No RouteTables")
 	}
 
-	_, err = s.EC2Service.CreateRoute(&ec2.CreateRouteInput{
-		DestinationCidrBlock: aws.String("0.0.0.0/0"),
-		GatewayId:            gw.InternetGateway.InternetGatewayId,
-		RouteTableId:         table.RouteTables[0].RouteTableId,
-	})
+	_, err = s.EC2Service.CreateRoute(
+		&ec2.CreateRouteInput{
+			DestinationCidrBlock: aws.String("0.0.0.0/0"),
+			GatewayId:            gw.InternetGateway.InternetGatewayId,
+			RouteTableId:         table.RouteTables[0].RouteTableId,
+		},
+	)
 	if err != nil {
-		return nil, fail.Wrap(normalizeError(err), "failed to create route")
+		return nil, normalizeErrorWithMsg(err, "failed to create route")
 	}
 
 	defer func() {
 		if xerr != nil {
-			_, derr := s.EC2Service.DeleteRoute(&ec2.DeleteRouteInput{
-				DestinationCidrBlock: aws.String("0.0.0.0/0"),
-				RouteTableId:         table.RouteTables[0].RouteTableId,
-			})
+			_, derr := s.EC2Service.DeleteRoute(
+				&ec2.DeleteRouteInput{
+					DestinationCidrBlock: aws.String("0.0.0.0/0"),
+					RouteTableId:         table.RouteTables[0].RouteTableId,
+				},
+			)
 			if derr != nil {
 				_ = xerr.AddConsequence(normalizeError(derr))
 			}
@@ -327,19 +374,36 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (res *abstract.Networ
 
 	// First result should be the public interface
 	sn := subnetsResult[0]
-	_, err = s.EC2Service.AssociateRouteTable(&ec2.AssociateRouteTableInput{
-		RouteTableId: table.RouteTables[0].RouteTableId,
-		SubnetId:     sn.Subnet.SubnetId,
-	})
+	art, err := s.EC2Service.AssociateRouteTable(
+		&ec2.AssociateRouteTableInput{
+			RouteTableId: table.RouteTables[0].RouteTableId,
+			SubnetId:     sn.Subnet.SubnetId,
+		},
+	)
 	if err != nil {
-		return nil, fail.Wrap(normalizeError(err), "failed to associate route table to subnet")
+		return nil, normalizeErrorWithMsg(err, "AssociateRouteTable")
 	}
 
 	defer func() {
-		if xerr != nil {
-			_, derr := s.EC2Service.DeleteRouteTable(&ec2.DeleteRouteTableInput{
-				RouteTableId: table.RouteTables[0].RouteTableId,
-			})
+		if err != nil {
+			_, derr := s.EC2Service.DisassociateRouteTable(
+				&ec2.DisassociateRouteTableInput{
+					AssociationId: art.AssociationId,
+				},
+			)
+			if derr != nil {
+				err = fail.AddConsequence(err, derr)
+			}
+		}
+	}()
+
+	defer func() {
+		if err != nil {
+			_, derr := s.EC2Service.DeleteRouteTable(
+				&ec2.DeleteRouteTableInput{
+					RouteTableId: table.RouteTables[0].RouteTableId,
+				},
+			)
 			if derr != nil {
 				_ = xerr.AddConsequence(normalizeError(derr))
 			}
@@ -354,10 +418,12 @@ func (s *Stack) CreateNetwork(req abstract.NetworkRequest) (res *abstract.Networ
 	subnet.IPVersion = ipversion.IPv4
 
 	for _, sn := range subnetsResult {
-		subnet.Subnetworks = append(subnet.Subnetworks, abstract.SubNetwork{
-			CIDR: aws.StringValue(sn.Subnet.CidrBlock),
-			ID:   aws.StringValue(sn.Subnet.SubnetId),
-		})
+		subnet.Subnetworks = append(
+			subnet.Subnetworks, abstract.SubNetwork{
+				CIDR: aws.StringValue(sn.Subnet.CidrBlock),
+				ID:   aws.StringValue(sn.Subnet.SubnetId),
+			},
+		)
 	}
 
 	// Make sure we log warnings
@@ -375,7 +441,9 @@ func (s *Stack) InspectNetwork(id string) (_ *abstract.Network, xerr fail.Error)
 		return nil, fail.InvalidParameterError("id", "cannot be empty string")
 	}
 
-	defer debug.NewTracer(nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.network"), "(%s)", id).WithStopwatch().Entering().Exiting()
+	defer debug.NewTracer(
+		nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.network"), "(%s)", id,
+	).WithStopwatch().Entering().Exiting()
 	defer fail.OnExitLogError(&xerr)
 
 	nets, xerr := s.ListNetworks()
@@ -401,7 +469,9 @@ func (s *Stack) InspectNetworkByName(name string) (_ *abstract.Network, xerr fai
 		return nil, fail.InvalidParameterError("name", "cannot be empty string")
 	}
 
-	defer debug.NewTracer(nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.network"), "('%s')", name).WithStopwatch().Entering().Exiting()
+	defer debug.NewTracer(
+		nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.network"), "('%s')", name,
+	).WithStopwatch().Entering().Exiting()
 	defer fail.OnExitLogError(&xerr)
 
 	nets, xerr := s.ListNetworks()
@@ -424,7 +494,9 @@ func (s *Stack) ListNetworks() (_ []*abstract.Network, xerr fail.Error) {
 		return nil, fail.InvalidInstanceError()
 	}
 
-	defer debug.NewTracer(nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.network")).WithStopwatch().Entering().Exiting()
+	defer debug.NewTracer(
+		nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.network"),
+	).WithStopwatch().Entering().Exiting()
 	defer fail.OnExitLogError(&xerr)
 
 	out, err := s.EC2Service.DescribeVpcs(&ec2.DescribeVpcsInput{})
@@ -479,7 +551,9 @@ func (s *Stack) DeleteNetwork(id string) (xerr fail.Error) {
 		return fail.InvalidParameterError("id", "cannot be empty string")
 	}
 
-	defer debug.NewTracer(nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.network"), "(%s)", id).WithStopwatch().Entering().Exiting()
+	defer debug.NewTracer(
+		nil, tracing.ShouldTrace("stack.aws") || tracing.ShouldTrace("stacks.network"), "(%s)", id,
+	).WithStopwatch().Entering().Exiting()
 	defer fail.OnExitLogError(&xerr)
 
 	vpcnet, xerr := s.InspectNetwork(id)
@@ -487,33 +561,39 @@ func (s *Stack) DeleteNetwork(id string) (xerr fail.Error) {
 		return xerr
 	}
 
-	addrs, _ := s.EC2Service.DescribeAddresses(&ec2.DescribeAddressesInput{
-		Filters: []*ec2.Filter{
-			{
-				Name: aws.String("domain"),
-				Values: []*string{
-					aws.String("vpc"),
+	addrs, _ := s.EC2Service.DescribeAddresses(
+		&ec2.DescribeAddressesInput{
+			Filters: []*ec2.Filter{
+				{
+					Name: aws.String("domain"),
+					Values: []*string{
+						aws.String("vpc"),
+					},
 				},
-			},
-			{
-				Name: aws.String("instance-id"),
-				Values: []*string{
-					aws.String(vpcnet.GatewayID),
+				{
+					Name: aws.String("instance-id"),
+					Values: []*string{
+						aws.String(vpcnet.GatewayID),
+					},
 				},
 			},
 		},
-	})
+	)
 
 	for _, addr := range addrs.Addresses {
-		_, err := s.EC2Service.DisassociateAddress(&ec2.DisassociateAddressInput{
-			AssociationId: addr.AssociationId,
-		})
+		_, err := s.EC2Service.DisassociateAddress(
+			&ec2.DisassociateAddressInput{
+				AssociationId: addr.AssociationId,
+			},
+		)
 		if err != nil {
 			return normalizeError(err)
 		}
-		_, err = s.EC2Service.ReleaseAddress(&ec2.ReleaseAddressInput{
-			AllocationId: addr.AllocationId,
-		})
+		_, err = s.EC2Service.ReleaseAddress(
+			&ec2.ReleaseAddressInput{
+				AllocationId: addr.AllocationId,
+			},
+		)
 		if err != nil {
 			return normalizeError(err)
 		}
@@ -526,15 +606,22 @@ func (s *Stack) DeleteNetwork(id string) (xerr fail.Error) {
 
 	logrus.Warn(spew.Sdump(vpcnet))
 
+	var vpcId *string
+
 	for _, asnTmp := range snTmp.Subnets {
-		logrus.Warnf("Comparing %s to %s", aws.StringValue(asnTmp.VpcId), vpcnet.Parent)
-		if aws.StringValue(asnTmp.VpcId) == vpcnet.Parent {
-			logrus.Warnf("Actually trying to delete subnetwork %s", aws.StringValue(asnTmp.SubnetId))
-			_, err = s.EC2Service.DeleteSubnet(&ec2.DeleteSubnetInput{
-				SubnetId: asnTmp.SubnetId,
-			})
-			if err != nil {
-				return normalizeError(err)
+		if vpcnet != nil && vpcnet.Parent != "" {
+			logrus.Warnf("Comparing %s to %s", aws.StringValue(asnTmp.VpcId), vpcnet.Parent)
+			if aws.StringValue(asnTmp.VpcId) == vpcnet.Parent {
+				vpcId = asnTmp.VpcId
+				logrus.Warnf("Actually trying to delete subnetwork %s", aws.StringValue(asnTmp.SubnetId))
+				_, err = s.EC2Service.DeleteSubnet(
+					&ec2.DeleteSubnetInput{
+						SubnetId: asnTmp.SubnetId,
+					},
+				)
+				if err != nil {
+					return normalizeError(err)
+				}
 			}
 		}
 	}
@@ -549,17 +636,21 @@ func (s *Stack) DeleteNetwork(id string) (xerr fail.Error) {
 	for _, agwTmp := range gwTmp.InternetGateways {
 		for _, att := range agwTmp.Attachments {
 			if aws.StringValue(att.VpcId) == vpcnet.Parent {
-				_, err = s.EC2Service.DetachInternetGateway(&ec2.DetachInternetGatewayInput{
-					InternetGatewayId: agwTmp.InternetGatewayId,
-					VpcId:             att.VpcId,
-				})
+				_, err = s.EC2Service.DetachInternetGateway(
+					&ec2.DetachInternetGatewayInput{
+						InternetGatewayId: agwTmp.InternetGatewayId,
+						VpcId:             att.VpcId,
+					},
+				)
 				if err != nil {
 					return normalizeError(err)
 				}
 
-				_, err = s.EC2Service.DeleteInternetGateway(&ec2.DeleteInternetGatewayInput{
-					InternetGatewayId: agwTmp.InternetGatewayId,
-				})
+				_, err = s.EC2Service.DeleteInternetGateway(
+					&ec2.DeleteInternetGatewayInput{
+						InternetGatewayId: agwTmp.InternetGatewayId,
+					},
+				)
 				if err != nil {
 					return normalizeError(err)
 				}
@@ -581,9 +672,11 @@ func (s *Stack) DeleteNetwork(id string) (xerr fail.Error) {
 			// Dissociate
 			for _, rta := range artTmp.Associations {
 				if !aws.BoolValue(rta.Main) {
-					_, err = s.EC2Service.DisassociateRouteTable(&ec2.DisassociateRouteTableInput{
-						AssociationId: rta.RouteTableAssociationId,
-					})
+					_, err = s.EC2Service.DisassociateRouteTable(
+						&ec2.DisassociateRouteTableInput{
+							AssociationId: rta.RouteTableAssociationId,
+						},
+					)
 					if err != nil {
 						return normalizeError(err)
 					}
@@ -596,9 +689,43 @@ func (s *Stack) DeleteNetwork(id string) (xerr fail.Error) {
 				continue
 			}
 
-			_, err = s.EC2Service.DeleteRouteTable(&ec2.DeleteRouteTableInput{
-				RouteTableId: artTmp.RouteTableId,
-			})
+			_, err = s.EC2Service.DeleteRouteTable(
+				&ec2.DeleteRouteTableInput{
+					RouteTableId: artTmp.RouteTableId,
+				},
+			)
+			if err != nil {
+				return normalizeError(err)
+			}
+		}
+	}
+
+	logrus.Warnf("Reached Route Table delete call")
+
+	table, err := s.EC2Service.DescribeRouteTables(
+		&ec2.DescribeRouteTablesInput{
+			Filters: []*ec2.Filter{
+				&ec2.Filter{
+					Name: aws.String("vpc-id"),
+					Values: []*string{
+						vpcId,
+					},
+				},
+			},
+		},
+	)
+	if err != nil {
+		return normalizeError(err)
+	}
+
+	if table != nil {
+		if len(table.RouteTables) > 0 {
+			_, err = s.EC2Service.DeleteRoute(
+				&ec2.DeleteRouteInput{
+					DestinationCidrBlock: aws.String("0.0.0.0/0"),
+					RouteTableId:         table.RouteTables[0].RouteTableId,
+				},
+			)
 			if err != nil {
 				return normalizeError(err)
 			}
@@ -607,9 +734,11 @@ func (s *Stack) DeleteNetwork(id string) (xerr fail.Error) {
 
 	logrus.Warnf("Reached DeleteVpc call")
 
-	_, err = s.EC2Service.DeleteVpc(&ec2.DeleteVpcInput{
-		VpcId: aws.String(vpcnet.Parent),
-	})
+	_, err = s.EC2Service.DeleteVpc(
+		&ec2.DeleteVpcInput{
+			VpcId: aws.String(vpcnet.Parent),
+		},
+	)
 	if err != nil {
 		return normalizeError(err)
 	}
