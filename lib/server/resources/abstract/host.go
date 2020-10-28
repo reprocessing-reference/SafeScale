@@ -209,7 +209,9 @@ type HostCore struct {
 
 // NewHostCore ...
 func NewHostCore() *HostCore {
-	return &HostCore{}
+	zero := &HostCore{}
+	zero.LastState = hoststate.UNKNOWN
+	return zero
 }
 
 // IsNull tells if the instance is a null value
@@ -341,21 +343,19 @@ type HostDescription struct {
 
 // HostFull groups information about host coming from provider
 type HostFull struct {
-	Core         *HostCore
-	Sizing       *HostEffectiveSizing
-	Network      *HostNetwork
-	Description  *HostDescription
-	CurrentState hoststate.Enum `json:"current_state,omitempty"`
+	Core        *HostCore
+	Sizing      *HostEffectiveSizing
+	Network     *HostNetwork
+	Description *HostDescription
 }
 
 // NewHostFull creates an instance of HostFull
 func NewHostFull() *HostFull {
 	return &HostFull{
-		Core:         NewHostCore(),
-		Sizing:       NewHostEffectiveSizing(),
-		Network:      NewHostNetwork(),
-		Description:  &HostDescription{},
-		CurrentState: hoststate.UNKNOWN,
+		Core:        NewHostCore(),
+		Sizing:      NewHostEffectiveSizing(),
+		Network:     NewHostNetwork(),
+		Description: &HostDescription{},
 	}
 }
 

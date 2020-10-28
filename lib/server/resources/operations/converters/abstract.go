@@ -182,8 +182,8 @@ func HostCoreFromAbstractToProtocol(in *abstract.HostCore) *protocol.Host {
 // HostFullFromAbstractToProtocol ...
 func HostFullFromAbstractToProtocol(in *abstract.HostFull) *protocol.Host {
 	state := in.Core.LastState
-	if in.CurrentState != hoststate.UNKNOWN {
-		state = in.CurrentState
+	if in.Core.LastState != hoststate.UNKNOWN {
+		state = in.Core.LastState
 	}
 	ph := &protocol.Host{
 		Id:         in.Core.ID,

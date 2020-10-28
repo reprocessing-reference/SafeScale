@@ -328,40 +328,48 @@ func (rh *host) Reload(task concurrency.Task) fail.Error {
 	xerr = rh.Alter(task, func(clonable data.Clonable, props *serialize.JSONProperties) fail.Error {
 		ahc, ok := clonable.(*abstract.HostCore)
 		if !ok {
-			return fail.InconsistentError("'*abstract.HostCore' expected, '%s' received", reflect.TypeOf(clonable).String())
+			return fail.InconsistentError(
+				"'*abstract.HostCore' expected, '%s' received", reflect.TypeOf(clonable).String(),
+			)
 		}
 		changed := false
-		if ahc.LastState != ahf.CurrentState {
-			ahc.LastState = ahf.CurrentState
+		if ahc.LastState != ahf.Core.LastState {
+			ahc.LastState = ahf.Core.LastState
 			changed = true
 		}
 
-		innerXErr := props.Alter(task, hostproperty.SizingV2, func(clonable data.Clonable) fail.Error {
-			hostSizingV2, ok := clonable.(*propertiesv2.HostSizing)
-			if !ok {
-				return fail.InconsistentError("'*propertiesv2.HostSizing' expected, '%s' provided", reflect.TypeOf(clonable).String())
-			}
-			allocated := converters.HostEffectiveSizingFromAbstractToPropertyV2(ahf.Sizing)
-			// FIXME: how to compare the 2 structs ?
-			if allocated != hostSizingV2.AllocatedSize {
-				hostSizingV2.AllocatedSize = allocated
-				changed = true
-			}
-			return nil
-		})
+		innerXErr := props.Alter(
+			task, hostproperty.SizingV2, func(clonable data.Clonable) fail.Error {
+				hostSizingV2, ok := clonable.(*propertiesv2.HostSizing)
+				if !ok {
+					return fail.InconsistentError(
+						"'*propertiesv2.HostSizing' expected, '%s' provided", reflect.TypeOf(clonable).String(),
+					)
+				}
+				allocated := converters.HostEffectiveSizingFromAbstractToPropertyV2(ahf.Sizing)
+				if !reflect.DeepEqual(*allocated, *hostSizingV2.AllocatedSize) {
+					hostSizingV2.AllocatedSize = allocated
+					changed = true
+				}
+				return nil
+			},
+		)
 		if innerXErr != nil {
 			return innerXErr
 		}
 
 		// Updates host property propertiesv1.HostNetwork
-		innerXErr = props.Alter(task, hostproperty.NetworkV1, func(clonable data.Clonable) fail.Error {
-			hostNetworkV1, ok := clonable.(*propertiesv1.HostNetwork)
-			if !ok {
-				return fail.InconsistentError("'*propertiesv1.HostNetwork' expected, '%s' provided", reflect.TypeOf(clonable).String())
-			}
-			_ = hostNetworkV1.Replace(converters.HostNetworkFromAbstractToPropertyV1(*ahf.Network))
-			return nil
-		})
+		innerXErr = props.Alter(
+			task, hostproperty.NetworkV1, func(clonable data.Clonable) fail.Error {
+				hostNetworkV1, ok := clonable.(*propertiesv1.HostNetwork)
+				if !ok {
+					return fail.InconsistentError(
+						"'*propertiesv1.HostNetwork' expected, '%s' provided", reflect.TypeOf(clonable).String(),
+					)
+				}
+				_ = hostNetworkV1.Replace(converters.HostNetworkFromAbstractToPropertyV1(*ahf.Network))
+				return nil
+			})
 		if innerXErr != nil {
 			return innerXErr
 		}
@@ -459,6 +467,8 @@ func (rh *host) Create(task concurrency.Task, hostReq abstract.HostRequest, host
 		}
 	} else {
 		if rn, _, xerr = getOrCreateDefaultNetwork(task, svc); xerr != nil {
+			logrus.Warn("One way or another")
+			logrus.Warn(spew.Sdump(xerr))
 			return nil, xerr
 		}
 		xerr = rn.Inspect(task, func(clonable data.Clonable, _ *serialize.JSONProperties) fail.Error {
