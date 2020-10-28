@@ -56,8 +56,29 @@ func FormatStrings(msg ...interface{}) string {
 		return ""
 	}
 	if len(msg) > 1 {
-		if _, ok := msg[0].(string); ok {
-			return fmt.Sprintf(msg[0].(string), msg[1:]...)
+		if pat, ok := msg[0].(string); ok {
+			if strings.Contains(pat, "%") {
+				return fmt.Sprintf(msg[0].(string), msg[1:]...)
+			}
+
+			var tmp []string
+			for _, val := range msg {
+				if _, ok := val.(string); ok {
+					tmp = append(tmp, val.(string))
+				}
+			}
+
+			return strings.Join(tmp, " : ")
+		}
+
+		if npat, ok := msg[0].([]string); ok {
+			var tmp []string
+			for _, val := range msg {
+				if _, ok := val.(string); ok {
+					tmp = append(tmp, val.(string))
+				}
+			}
+			return strings.Join(npat, " : ") + " : " + strings.Join(tmp, " : ")
 		}
 
 		return ""
