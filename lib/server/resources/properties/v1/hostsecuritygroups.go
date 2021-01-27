@@ -18,6 +18,7 @@ package propertiesv1
 
 import (
 	"github.com/CS-SI/SafeScale/lib/server/resources/enums/hostproperty"
+	"github.com/CS-SI/SafeScale/lib/server/resources/properties"
 	"github.com/CS-SI/SafeScale/lib/utils/data"
 	"github.com/CS-SI/SafeScale/lib/utils/serialize"
 )
@@ -30,6 +31,8 @@ type HostSecurityGroups struct {
 	DefaultID string                        `json:"default_id,omitempty"` // contains the ID of the Security Group considered as default
 	ByID      map[string]*SecurityGroupBond `json:"by_id,omitempty"`      // map of security groups by IDs
 	ByName    map[string]string             `json:"by_name,omitempty"`    // map of security group IDs by Names
+
+	properties.Depreciation `json:"deprecated,omitempty"`
 }
 
 // NewHostSecurityGroups ...
